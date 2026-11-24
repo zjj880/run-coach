@@ -143,7 +143,7 @@ Windows 桌面 ──► run-coach://app/（Electron 私有协议）
 
 1. `App.tsx` 827 行单文件巨石：状态、三个页面、五个内联表单、全部样式都在一起。拆分前先补测试。
 2. 无 ESLint/Prettier 配置，风格靠约定（2 空格、单引号、无分号、中文注释）。
-3. 无 CI、无 `.gitattributes`：Windows 上会出现 LF→CRLF 警告，跨平台协作前建议加 `* text=auto eol=lf`。
+3. 已有 `.gitattributes`（统一 LF）与 GitHub Actions CI（typecheck + 测试）；新增二进制类型时记得补 binary 规则。
 4. `npm test` 依赖 `node --test` 的子进程能力，受限环境需逐文件执行（见第 2 节）。
 5. `src/*.ts` 是纯 TS 且被 Node 直接 import，`package.json` 未声明 `"type": "module"`，跑测试会有 `MODULE_TYPELESS_PACKAGE_JSON` 警告（无害）。
 6. 手机端 AI 能力不可用是**已知限制**，不是 bug：需要另行部署带认证的后端。
