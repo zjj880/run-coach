@@ -49,6 +49,8 @@ export type CoachState = {
   skipped: string[];
   lastSync?: string;
   demoMetrics: boolean;
+  /** 是否允许同步明细时用取整后的活动起点查询环境温湿度；缺省为开启。 */
+  weatherEnabled?: boolean;
   reviews?: Record<string, SavedReview>;
   availability?: ScheduleBook;
   garmin?: GarminSnapshot;

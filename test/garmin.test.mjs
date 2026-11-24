@@ -72,7 +72,9 @@ test('desktop proxy saves the key only on successful connect and returns no cred
   assert.equal(JSON.parse(payload).activities.length, 2);
   assert.equal((await post('sync')).status, 200);
   const detailed = await (await post('details', { ids: ['garmin-cn-810'] })).json();
-  assert.deepEqual(detailed.details[0].detail, { maxHr: 168, runningCadenceSpm: 176, strideLengthCm: 111, averagePowerW: 285,
+  const { fitIssue, ...summary } = detailed.details[0].detail;
+  assert.equal(fitIssue, '佳明 FIT 下载失败（HTTP 404）。');
+  assert.deepEqual(summary, { maxHr: 168, runningCadenceSpm: 176, strideLengthCm: 111, averagePowerW: 285,
     segmentTotals: [{ type: 'INTERVAL_ACTIVE', count: 6, seconds: 960, meters: 4800, averageHr: 160 }] });
   await fetch(root + '/garmin/settings', { method: 'DELETE' });
   assert.equal((await post('sync')).status, 409);

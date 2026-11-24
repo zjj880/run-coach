@@ -51,6 +51,7 @@ test('Garmin downloads binary and review receives selected FIT data plus per-act
     assert.equal(options.headers.Authorization, 'Bearer ' + token);
     if (url.pathname === '/activity-service/activity/810') return Response.json({ summaryDTO: { maxHR: 163 } });
     assert.equal(url.pathname, '/download-service/files/activity/810');
+    assert.match(options.headers.Accept, /application\/x-zip-compressed/);
     return new Response(zipSync({ 'activity.fit': syntheticActivity() }), { headers: { 'Content-Type': 'application/zip' } });
   });
   const incoming = { id, date, title: '操场跑', time: '08:00', km: 0.45, minutes: 1.63, averageHr: 140, role: '待归类' };

@@ -1,5 +1,6 @@
 import type { Activity, Health } from './training';
 import type { FitActivity } from './fit';
+import { fetchActivityWeather, garminWeatherStart, type ActivityWeather } from './activityWeather.ts';
 
 const host = 'https://personal.connectapi.garmin.cn';
 const tokenPath = '/personalapitoken-service/personal-api/personal-api-key/token';
@@ -22,6 +23,8 @@ export type ActivityDetail = {
   aerobicTrainingEffect?: number;
   anaerobicTrainingEffect?: number;
   segmentTotals?: { type: string; count?: number; seconds?: number; meters?: number; averageHr?: number }[];
+  weather?: ActivityWeather;
+  fitIssue?: string;
 };
 
 export function validateGarminKey(input: string) {
@@ -113,22 +116,38 @@ async function getGarminData(input: string, fetcher: typeof fetch) {
   return { get, token };
 }
 
+class FitDownloadError extends Error {}
+
 async function downloadFit(fetcher: typeof fetch, id: string, token: string, maxBytes: number) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
+  const headers = { Authorization: 'Bearer ' + token, Accept: 'application/zip, application/x-zip-compressed, application/octet-stream' };
+  const target = host + '/download-service/files/activity/' + id;
   try {
-    const response = await fetcher(host + '/download-service/files/activity/' + id, {
-      headers: { Authorization: 'Bearer ' + token, Accept: 'application/zip, application/octet-stream' },
-      signal: controller.signal, redirect: 'error',
-    });
-    if (response.status !== 200 || Number(response.headers.get('content-length')) > maxBytes) {
+    let response = await fetcher(target, { headers, signal: controller.signal, redirect: 'manual' });
+    // 佳明 CDN 偶尔 302 到同域的另一路径：只跟随一次，且目标必须仍是佳明域名。
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) throw new FitDownloadError('佳明 FIT 下载返回重定向（缺少目标地址）。');
+      let next: string;
+      try { next = new URL(location, target).toString(); } catch { throw new FitDownloadError('佳明 FIT 重定向地址无效。'); }
+      if (!/(^|\.)garmin\.(cn|com)$/i.test(new URL(next).hostname)) {
+        throw new FitDownloadError('佳明 FIT 下载重定向到非佳明域名，已阻止。');
+      }
+      response = await fetcher(next, { headers, signal: controller.signal, redirect: 'error' });
+    }
+    if (response.status !== 200) {
       controller.abort();
-      throw new Error('无法下载活动 FIT。');
+      throw new FitDownloadError('佳明 FIT 下载失败（HTTP ' + response.status + '）。');
+    }
+    if (Number(response.headers.get('content-length')) > maxBytes) {
+      controller.abort();
+      throw new FitDownloadError('佳明 FIT 下载文件超过大小上限。');
     }
     const reader = response.body?.getReader?.();
     if (!reader) {
       const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.length > maxBytes) throw new Error('FIT 文件过大。');
+      if (bytes.length > maxBytes) throw new FitDownloadError('佳明 FIT 下载文件超过大小上限。');
       return bytes;
     }
     const chunks: Uint8Array[] = [];
@@ -140,7 +159,7 @@ async function downloadFit(fetcher: typeof fetch, id: string, token: string, max
         size += value.length;
         if (size > maxBytes) {
           await reader.cancel();
-          throw new Error('FIT 文件过大。');
+          throw new FitDownloadError('佳明 FIT 下载文件超过大小上限。');
         }
         chunks.push(value);
       }
@@ -152,6 +171,9 @@ async function downloadFit(fetcher: typeof fetch, id: string, token: string, max
       offset += chunk.length;
     }
     return bytes;
+  } catch (error) {
+    if (error instanceof FitDownloadError) throw error;
+    throw new FitDownloadError(controller.signal.aborted ? '佳明 FIT 下载超时。' : '佳明 FIT 下载连接失败。');
   } finally { clearTimeout(timeout); }
 }
 
@@ -182,7 +204,8 @@ function normalizeDetail(input: unknown): ActivityDetail {
 
 export type GarminActivityDetail = { id: string; detail?: ActivityDetail; fit?: FitActivity };
 
-export async function syncGarminDetails(input: string, ids: string[], fetcher: typeof fetch = fetch): Promise<GarminActivityDetail[]> {
+export async function syncGarminDetails(input: string, ids: string[], fetcher: typeof fetch = fetch,
+  options: { weather?: boolean } = {}): Promise<GarminActivityDetail[]> {
   if (!ids.length || ids.length > 12 || ids.some((id) => !/^garmin-cn-[1-9]\d{0,19}$/.test(id))) {
     throw new Error('请选择 1 至 12 条有效的佳明活动。');
   }
@@ -194,12 +217,31 @@ export async function syncGarminDetails(input: string, ids: string[], fetcher: t
     const batch = await Promise.all(ids.slice(start, start + 3).map(async (id): Promise<GarminActivityDetail> => {
       const activityId = id.slice('garmin-cn-'.length);
       const [summary, file] = await Promise.allSettled([
-        get('/activity-service/activity/' + activityId).then(normalizeDetail),
-        downloadFit(fetcher, activityId, token, maxFitDownloadBytes).then(parseFitActivity),
+        get('/activity-service/activity/' + activityId).then(async (value) => {
+          const source = obj(value);
+          const detail = normalizeDetail(source);
+          const start = garminWeatherStart({ ...source, ...obj(source.summaryDTO) });
+          if (start && options.weather !== false) {
+            const weather = await fetchActivityWeather(start, fetcher);
+            if (weather) detail.weather = weather;
+          }
+          return detail;
+        }),
+        downloadFit(fetcher, activityId, token, maxFitDownloadBytes).then((bytes) => {
+          try { return parseFitActivity(bytes); }
+          catch (error) {
+            const message = error instanceof Error ? error.message : '';
+            const known = ['活动压缩包中没有可读取的 FIT。', 'FIT 文件校验失败。', 'FIT 文件包含无法读取的记录。',
+              'FIT 文件中没有活动数据。', 'FIT 文件大小超出支持范围。'];
+            throw new Error(known.includes(message) ? '已下载。' + message : '已下载，但 FIT 解压或解码失败。');
+          }
+        }),
       ]);
       if (summary.status === 'fulfilled' || file.status === 'fulfilled') reachable = true;
-      const detail = summary.status === 'fulfilled' && Object.values(summary.value).some((value) => value !== undefined) ? summary.value : undefined;
-      return { id, detail, fit: file.status === 'fulfilled' ? file.value : undefined };
+      const detail: ActivityDetail = summary.status === 'fulfilled' ? summary.value : {};
+      if (file.status === 'rejected') detail.fitIssue = file.reason.message;
+      return { id, detail: Object.values(detail).some((value) => value !== undefined) ? detail : undefined,
+        fit: file.status === 'fulfilled' ? file.value : undefined };
     }));
     details.push(...batch.filter(({ detail, fit }) => detail || fit));
   }

@@ -48,21 +48,25 @@ export function trainingReviewInput(date: string, plans: PlanEntry[], activities
     })),
     total: metrics(sessions),
     mainWithWarmupAndCooldown: main ? metrics(sessions.filter((item) => item.id === main.id || item.parentId === main.id)) : null,
-    activities: sessions.map((activity, index) => ({
-      item: index + 1,
-      parentItem: activity.parentId ? (sessions.findIndex((item) => item.id === activity.parentId) + 1 || null) : null,
-      title: activity.title,
-      role: activity.role,
-      ...(activity.roleSource ? { roleSource: activity.roleSource } : {}),
-      minutes: activity.minutes,
-      km: activity.km || null,
-      averagePaceSecPerKm: activity.km > 0 ? Math.round(activity.minutes * 60 / activity.km) : null,
-      averageHr: activity.averageHr ?? null,
-      core: activity.core ?? null,
-      ...(activity.detail ? { detail: activity.detail } : {}),
-      ...(activity.fit ? { fit: fitForReview(activity.fit) } : {}),
-      ...(activity.feedback ? { feedback: activity.feedback } : {}),
-    })),
+    activities: sessions.map((activity, index) => {
+      const { weather, fitIssue: _fitIssue, ...deviceDetail } = activity.detail ?? {};
+      return {
+        item: index + 1,
+        parentItem: activity.parentId ? (sessions.findIndex((item) => item.id === activity.parentId) + 1 || null) : null,
+        title: activity.title,
+        role: activity.role,
+        ...(activity.roleSource ? { roleSource: activity.roleSource } : {}),
+        minutes: activity.minutes,
+        km: activity.km || null,
+        averagePaceSecPerKm: activity.km > 0 ? Math.round(activity.minutes * 60 / activity.km) : null,
+        averageHr: activity.averageHr ?? null,
+        core: activity.core ?? null,
+        ...(Object.values(deviceDetail).some((value) => value !== undefined) ? { detail: deviceDetail } : {}),
+        ...(weather ? { weather } : {}),
+        ...(activity.fit ? { fit: fitForReview(activity.fit) } : {}),
+        ...(activity.feedback ? { feedback: activity.feedback } : {}),
+      };
+    }),
   };
 }
 

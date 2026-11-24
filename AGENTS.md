@@ -47,6 +47,7 @@ Get-ChildItem test\*.mjs | ForEach-Object { node $_.FullName; if ($LASTEXITCODE)
 | `src/schedule.ts` | 时间窗、忙碌区间、空档计算、当天可选训练时段 |
 | `src/calendarImport.ts` | ICS 解析（含 RRULE 展开、时区换算、上限 5 万次展开） |
 | `src/garmin.ts` | 佳明中国区适配：令牌交换、日指标、14 天活动、活动明细、FIT 下载 |
+| `src/activityWeather.ts` | 活动天气估计：取整到约 1 公里的起点 + 整点时间向 Open-Meteo 查温湿度，进程内缓存，可在「我的」关闭 |
 | `src/fit.ts` | FIT 解析（fitsdk），抽圈、心率采样、趋势分段、图表降采样 |
 | `src/coach.ts` | AI 教练对话的类型定义（极薄） |
 | `src/AiTools.tsx` | 通用 UI 原语（`Dialog`/`Button`/`Field`）、`aiRequest` 客户端、AI 设置、课表识别导入、训练评估弹窗 |
@@ -120,6 +121,7 @@ Windows 桌面 ──► run-coach://app/（Electron 私有协议）
 - AI 只发送「完成当前任务所需」的字段，且每种能力有明确白名单：
   - 课表识别 → 用户主动提交的文字/图片
   - 训练评估 → 所选日期的课表 + 活动摘要（不含原始 FIT/GPS/完整采样）
+  - 环境温湿度 → 取整到约 1 公里的活动起点 + 整点时间（不含活动 ID；用户可在「我的」关闭）
   - 评估追问 → 已保存的评估结果 + 同一份评估输入 + 最多 12 轮对话（服务端重建白名单，额外字段不外发）
   - 心情回应 → 仅心情与备注（测试已断言多余字段不会外发）
   - 教练对话 → 上下文 + 最近 13 轮

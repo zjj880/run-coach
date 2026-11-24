@@ -281,6 +281,9 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
           <Text style={styles.small}>{time}</Text>
         </View>
         <Text style={styles.body}>{metrics}</Text>
+        {detail?.weather && <Text style={styles.body}>
+          天气估计 · {roundTo(detail.weather.temperatureC, 1)} °C · 相对湿度 {roundTo(detail.weather.relativeHumidityPct)}%
+        </Text>}
         {feedbackLine ? <Text style={styles.body}>{feedbackLine}</Text> : null}
         {showData && activity.roleReason && <Text style={styles.small}>{activity.roleReason}</Text>}
         {showData && detailLine ? <Text style={styles.small}>{detailLine}</Text> : null}
@@ -296,6 +299,7 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
           <Button secondary label={feedback ? '修改体感' : '填写体感'} onPress={() => onFeedback(activity)} disabled={working} />
         </View>
         {showData && fit && <FitReview fit={fit} heartRateSuspect={feedback?.heartRateTrust === '存疑'} />}
+        {!fit && detail?.fitIssue && <Text style={styles.small}>{detail.fitIssue}</Text>}
       </View>;
     })}
     {activities.some((item) => !!(item.detail || item.fit || item.roleReason)) && <View style={styles.buttons}>
@@ -316,7 +320,8 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
       <View style={styles.buttons}><Button label={asking ? '正在回答…' : '发送追问'} onPress={() => void ask()}
         disabled={working || !question.trim()} /></View>
     </>}
-    {ready && <Text style={styles.body}>点击评估会把当天课表、活动统计、圈摘要和课后体感发给已配置的 AI 服务。</Text>}
+    {onLoadDetails && <Text style={styles.small}>同步明细时，Open-Meteo 按取整后的起点和开跑时间查询环境温湿度。</Text>}
+    {ready && <Text style={styles.body}>点击评估会把当天课表、活动统计、圈摘要、已保存的温湿度和课后体感发给已配置的 AI 服务。</Text>}
     {notice !== '' && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
   </Dialog>;
 }

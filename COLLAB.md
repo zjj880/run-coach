@@ -16,12 +16,12 @@
 | Topics | ai-coach, electron, expo, fitness, garmin, local-first, offline-first, react-native, running, training, typescript |
 | 仓库描述 | 跑步教练 · Expo + React Native + Electron 本地优先训练 App |
 | 当前 HEAD（截至本文） | `6aa40de`，共 11 个提交，45 个受控文件 |
-| 已发布标签 | `v0.1.3`、`v0.1.4` |
+| 已发布标签 | `v0.1.3`、`v0.1.4`、`v0.1.6`、`v0.1.7` |
 
 ## 2. 项目与技术栈（一段话）
 
 本地优先的跑步训练 App：三个页面（今天 / 课表 / 我的），动态课表、晨间打卡、日程空档、佳明中国区同步（睡眠/HRV/静息心率/活动/FIT）、AI 课表识别、训练评估与追问。
-技术栈：Expo SDK 58 + React Native 0.88 + TypeScript 6（strict）+ Electron 45；一套代码产出 **Android APK / 浏览器预览 / Windows exe** 三种形态；数据全在本机（AsyncStorage 或 Electron userData），无账号无云端。
+技术栈：Expo SDK 58 + React Native 0.88 + TypeScript 6（strict）+ Electron 45；一套代码产出 **Android APK / 浏览器预览 / Windows exe / Linux 桌面** 四种形态；数据全在本机（AsyncStorage 或 Electron userData），无账号无云端。
 
 ## 3. 版本与已发布产物
 
@@ -29,6 +29,8 @@
 | --- | --- | --- |
 | v0.1.3 | 已发布（预发布） | Windows x64 zip（152.2 MB） |
 | v0.1.4 | 已发布（预发布） | Windows x64 zip（156.3 MB）+ Android arm64 APK（21.9 MB） |
+| v0.1.6 | 已发布（预发布） | Windows x64 zip + Android arm64 APK（FIT 逐圈配速/心率图） |
+| v0.1.7 | 本次发布 | Windows x64 zip + Linux x64 tar.gz + Android arm64 APK（活动天气 + FIT 下载健壮性 + 天气开关） |
 
 - 发布页：https://github.com/zjj880/run-coach/releases
 - **`app.json` 为版本单一来源**：`expo.version`（如 0.1.5）+ `android.versionCode`（如 6）必须同步递增。
@@ -89,7 +91,9 @@ npm run windows:build                     # Electron 打包 → dist/RunCoach-Wi
 | **活动自动归类**（按心率/配速/时序，手动优先） | ✅ 0.1.4 上线（`src/autoclassify.ts`） |
 | **评估结果继续追问**（`POST /ai/review-chat`） | ✅ 0.1.4 上线 |
 | 评估数据精简展示（浮点取整、分段类型中文化、计划/实际对比） | ✅ 0.1.4 上线 |
-| **FIT 图表重构**（逐圈配速图、心率图选点、`src/fitCharts.ts`） | 🚧 进行中（工作区未提交，目标 0.1.6） |
+| **FIT 图表**（逐圈配速图、心率图选点、`src/fitCharts.ts`） | ✅ 0.1.6 上线 |
+| **活动天气估计**（Open-Meteo 温湿度、`src/activityWeather.ts`、可取整坐标/可关闭） | ✅ 0.1.7 上线 |
+| **FIT 下载健壮性**（同域重定向、超时/超限分类、失败不丢明细） | ✅ 0.1.7 上线 |
 | 手机端 AI 后端、系统日历、正式签名多 ABI 分发 | ⏳ 待办 |
 
 ## 8. 已知坑（改动前必看）

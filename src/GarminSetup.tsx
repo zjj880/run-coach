@@ -34,14 +34,14 @@ export async function pullGarmin(date: string, input?: string): Promise<GarminSy
   return snapshot;
 }
 
-export async function pullGarminDetails(ids: string[]) {
+export async function pullGarminDetails(ids: string[], weather = true) {
   if (Platform.OS === 'web') {
     if (!desktopPreview()) throw new Error('请在电脑 App 或手机原生 App 同步佳明明细。');
-    return (await aiRequest<{ details: Awaited<ReturnType<typeof syncGarminDetails>> }>('/garmin/details', 'POST', { ids })).details;
+    return (await aiRequest<{ details: Awaited<ReturnType<typeof syncGarminDetails>> }>('/garmin/details', 'POST', { ids, weather })).details;
   }
   const key = await (await nativeStorage()).getItemAsync(secretName);
   if (!key) throw new Error('请先连接佳明。');
-  return syncGarminDetails(key, ids);
+  return syncGarminDetails(key, ids, fetch, { weather });
 }
 
 export function GarminSetup({ date, latest, onSync, onDisconnect, onClose }: {

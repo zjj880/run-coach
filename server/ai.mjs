@@ -28,6 +28,7 @@ const reviewPrompt = [
   '活动 detail 是佳明详情。segmentTotals 是同类型的分段汇总，不是逐圈记录，不能拿来推断每公里配速或心率变化。',
   'fit.laps 是设备记录圈，按计时器时长计算配速，圈长度可能不同。lapCount 大于所给圈数时，说明只提供了抽取的圈。heartRateTrend 是各时间段的采样均值和范围，不要推断精确的每秒变化或每圈匹配。',
   'feedback 是该节课的人为评估：effort 为 0–10 的主观用力评分，note、天气偏冷和传感器来源是用户自述。区分每条活动的客观与主观数据，不把主课的体感套到热身或其他课。',
+  'weather 是第三方（Open-Meteo）按取整坐标估计的环境温湿度，只作参考，不能替代实测或主观体感，也不要据此推断热适应、脱水或恢复水平；缺天气时不要提及。',
   '用户标注心率存疑时，降低心率、训练效果及其衍生指标在强度判断中的权重，优先比较体感、配速、地形、用时和计划，并提示依据局限。天气冷、腕式或两者同时出现只提示可能误差；胸带也不能自动证明每个读数可信。不得自行改写、校正或补造心率。',
 ].join('\n');
 
@@ -326,7 +327,7 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
         if (!Array.isArray(data?.ids) || data.ids.some((id) => typeof id !== 'string')) throw new ApiError(400, '需要有效的佳明活动。');
         const version = garminRevision;
         let details;
-        try { details = await syncGarminDetails(garminKey, [...new Set(data.ids)], garminFetchImpl); }
+        try { details = await syncGarminDetails(garminKey, [...new Set(data.ids)], garminFetchImpl, { weather: data.weather !== false }); }
         catch (error) { throw new ApiError(502, error.message); }
         if (version !== garminRevision) throw new ApiError(409, '佳明连接已更改，请重新同步。');
         return send(200, { details });

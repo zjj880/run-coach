@@ -258,7 +258,7 @@ function CoachApp() {
 
   async function syncReviewDetails(day: string) {
     const ids = activitiesInUse.filter((item) => item.date === day && item.id.startsWith('garmin-cn-')).map((item) => item.id);
-    const data = await pullGarminDetails(ids);
+    const data = await pullGarminDetails(ids, state.weatherEnabled !== false);
     const details = new Map(data.map((record) => [record.id, record]));
     setState((current) => autoClassifyDay({ ...current, activities: current.activities.map((item) => {
       const record = details.get(item.id);
@@ -524,6 +524,20 @@ function CoachApp() {
             <Text style={styles.cardTitle}>AI 接口</Text><Text style={styles.body}>配置模型和 API 密钥，用于课表、训练和心情回应。</Text>
           </View></View>
           <View style={styles.actions}><Action label="设置 AI 接口" onPress={() => open({ type: 'aiSettings' })} /></View>
+        </Card>
+        <Card>
+          <View style={styles.tip}><Icon name="weather-partly-cloudy" size={23} /><View style={styles.tipText}>
+            <Text style={styles.cardTitle}>环境温湿度估计</Text><Text style={styles.body}>
+              {state.weatherEnabled === false
+                ? '已关闭：同步活动明细时不会把活动起点发给第三方天气服务。'
+                : '开启时，同步明细会把取整到约 1 公里的活动起点和开跑时间发给 Open-Meteo，查询当时的温湿度。'}
+            </Text>
+          </View></View>
+          <View style={styles.actions}>
+            <Action label={state.weatherEnabled === false ? '开启天气估计' : '关闭天气估计'} secondary
+              onPress={() => update((current) => ({ ...current, weatherEnabled: current.weatherEnabled === false }),
+                state.weatherEnabled === false ? '已开启环境温湿度估计。' : '已关闭环境温湿度估计。')} />
+          </View>
         </Card>
         {!garmin && <Card>
           <View style={styles.tip}><Icon name="watch-variant" size={23} /><View style={styles.tipText}>
