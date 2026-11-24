@@ -295,7 +295,7 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
           <Button secondary label="手动归类" onPress={() => onClassify(activity)} disabled={working} />
           <Button secondary label={feedback ? '修改体感' : '填写体感'} onPress={() => onFeedback(activity)} disabled={working} />
         </View>
-        {showData && fit && <FitReview fit={fit} />}
+        {showData && fit && <FitReview fit={fit} heartRateSuspect={feedback?.heartRateTrust === '存疑'} />}
       </View>;
     })}
     {activities.some((item) => !!(item.detail || item.fit || item.roleReason)) && <View style={styles.buttons}>

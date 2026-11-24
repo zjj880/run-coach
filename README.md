@@ -10,8 +10,8 @@ Expo + React Native + TypeScript 试用版，支持在手机或浏览器上查�
 
 | 平台 | 安装包 | 说明 |
 | --- | --- | --- |
-| Windows x64 | [RunCoach-Windows-0.1.4-x64.zip](https://github.com/zjj880/run-coach/releases/download/v0.1.4/RunCoach-Windows-0.1.4-x64.zip) | 解压后双击 `RunCoach.exe`，目录内文件需放在一起 |
-| Android（arm64 内测） | [run-coach-android-0.1.4.apk](https://github.com/zjj880/run-coach/releases/download/v0.1.4/run-coach-android-0.1.4.apk) | 本地调试签名，仅 arm64 设备；需允许安装未知来源应用 |
+| Windows x64 | [RunCoach-Windows-0.1.6-x64.zip](https://github.com/zjj880/run-coach/releases/download/v0.1.6/RunCoach-Windows-0.1.6-x64.zip) | 解压后双击 `RunCoach.exe`，目录内文件需放在一起 |
+| Android（arm64 内测） | [run-coach-android-0.1.6.apk](https://github.com/zjj880/run-coach/releases/download/v0.1.6/run-coach-android-0.1.6.apk) | 本地调试签名，仅 arm64 设备，需允许安装未知来源应用 |
 
 全部版本、大小与 SHA-256 见 [Releases](https://github.com/zjj880/run-coach/releases)。
 
@@ -66,6 +66,7 @@ AI 设置支持 Windows 电脑版和电脑浏览器开发预览。手机端 AI �
 - 自动归类会结合计划时长、配速、可用心率和活动先后顺序。手动标记活动归属后，后续同步会保留该标记。运动明细和 FIT 曲线可以在评估面板展开查看。
 - 评估只发送所选日期的生效课表和活动摘要。页面展示计划与执行、配速与心率、下次建议和数据局限。评估保存在当前设备。课表或活动变更后标注「待重新评估」。
 - 对已同步的佳明活动，可在评估窗点「同步佳明明细与 FIT」。应用读取详情 JSON，并从佳明下载原始活动 FIT，用官方 SDK 解析实际记录圈和心率采样。圈配速使用该圈计时器时长和距离。数据取决于设备记录，图中长时间缺采样会留空。
+- 「展开运动数据和曲线」可查看逐圈配速柱状图和时间心率曲线。点圈速柱查看该圈配速和心率，点心率图读取附近的采样。
 - 每节活动可填 RPE（0–10）、心率来源、读数是否存疑、天气偏冷以及课后备注。评估会结合体感、计划、设备圈和心率分段统计。原始 FIT、GPS 和完整采样序列留在评估请求之外。保存体感或同步数据后，之前的评估会标记待重新评估。
 - 打开「补充晨间打卡」，可选腿痛、脚痛等常见项目，展开更多选项或填写其他不适。填好心情、备注后可生成 AI 回应，生成时只发送这两项，保存打卡后可在首页查看。
 

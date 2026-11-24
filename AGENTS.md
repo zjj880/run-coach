@@ -52,7 +52,7 @@ Get-ChildItem test\*.mjs | ForEach-Object { node $_.FullName; if ($LASTEXITCODE)
 | `src/AiTools.tsx` | 通用 UI 原语（`Dialog`/`Button`/`Field`）、`aiRequest` 客户端、AI 设置、课表识别导入、训练评估弹窗 |
 | `src/ScheduleEditor.tsx` | 日程与训练时间（手填/ICS/系统日历） |
 | `src/GarminSetup.tsx` | 佳明连接界面 + 三端凭据分流（web 走代理 / 原生走 SecureStore） |
-| `src/FitReview.tsx` | FIT 心率曲线与圈记录渲染（纯 View 画折线，无图表库） |
+| `src/FitReview.tsx`、`src/fitCharts.ts` | 逐圈配速、心率图和选点逻辑，消费 FIT 解析后的 `FitActivity` |
 | `src/CoachDialog.tsx` | AI 教练多轮对话与「确认今日方案」 |
 | `src/ActivityFeedbackDialog.tsx` | 单节活动 RPE/心率来源/存疑/天气/备注 |
 | `server/ai.mjs` | 本机 HTTP 服务：`/ai/*` 四个 AI 能力 + `/garmin/*` 四个代理路由；CORS 与 Host 白名单、桌面 token 校验 |
@@ -159,6 +159,7 @@ Windows 桌面 ──► run-coach://app/（Electron 私有协议）
 ## 9. 协作约定
 
 - 一次只改一个模块；提交信息说明「场景 / 实现 / 验证」。
+- 并行开发时先约定模块和数据接口，各用独立分支或工作树。图表侧消费 `FitActivity`，数据侧维护佳明接口、FIT 解析与相应测试。共享入口和版本号由合并任务统一调整，安装包按合并后的同一个提交构建。
 - 改动后必须：`npm run typecheck` + 相关测试文件通过；涉及 UI 的说明手工验证路径。
 - 不要擅自改 `HANDOFF.md` 的产品边界；需要变更先和产品所有者确认。
 - 新增/调整 AI 提示词时，同步更新本文件第 6 节的白名单说明。
