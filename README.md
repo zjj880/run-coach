@@ -10,7 +10,7 @@ Expo + React Native + TypeScript 试用版，支持在手机或浏览器上查�
 
 | 平台 | 安装包 |
 | --- | --- |
-| Windows x64 | [RunCoach-Windows-0.1.3-x64.zip](https://github.com/zjj880/run-coach/releases/download/v0.1.3/RunCoach-Windows-0.1.3-x64.zip) — 解压后双击 `RunCoach.exe`，目录内文件需放在一起 |
+| Windows x64 | [RunCoach-Windows-0.1.4-x64.zip](https://github.com/zjj880/run-coach/releases/download/v0.1.4/RunCoach-Windows-0.1.4-x64.zip) — 解压后双击 `RunCoach.exe`，目录内文件需放在一起 |
 
 目前只提供最新电脑版；Android / iOS 形态仍在开发中。全部版本与校验和见 [Releases](https://github.com/zjj880/run-coach/releases)。
 
