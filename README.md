@@ -10,8 +10,9 @@ Expo + React Native + TypeScript 试用版，支持在手机或浏览器上查�
 
 | 平台 | 安装包 | 说明 |
 | --- | --- | --- |
-| Windows x64 | [RunCoach-Windows-0.1.6-x64.zip](https://github.com/zjj880/run-coach/releases/download/v0.1.6/RunCoach-Windows-0.1.6-x64.zip) | 解压后双击 `RunCoach.exe`，目录内文件需放在一起 |
-| Android（arm64 内测） | [run-coach-android-0.1.6.apk](https://github.com/zjj880/run-coach/releases/download/v0.1.6/run-coach-android-0.1.6.apk) | 本地调试签名，仅 arm64 设备，需允许安装未知来源应用 |
+| Windows x64 | [RunCoach-Windows-0.1.7-x64.zip](https://github.com/zjj880/run-coach/releases/download/v0.1.7/RunCoach-Windows-0.1.7-x64.zip) | 解压后双击 `RunCoach.exe`，目录内文件需放在一起 |
+| Linux x64 | [RunCoach-Linux-0.1.7-x64.tar.gz](https://github.com/zjj880/run-coach/releases/download/v0.1.7/RunCoach-Linux-0.1.7-x64.tar.gz) | 解压后 `chmod +x RunCoach chrome-sandbox`，再 `./RunCoach` |
+| Android（arm64 内测） | [run-coach-android-0.1.7.apk](https://github.com/zjj880/run-coach/releases/download/v0.1.7/run-coach-android-0.1.7.apk) | 本地调试签名，仅 arm64 设备，需允许安装未知来源应用 |
 
 全部版本、大小与 SHA-256 见 [Releases](https://github.com/zjj880/run-coach/releases)。
 
