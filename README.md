@@ -1,8 +1,21 @@
 # 跑步教练
 
+[![CI](https://github.com/zjj880/run-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/zjj880/run-coach/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/zjj880/run-coach?include_prereleases&label=release)](https://github.com/zjj880/run-coach/releases)
+
 Expo + React Native + TypeScript 试用版，支持在手机或浏览器上查看。演示课表和反馈保存在当前设备。
 
-开发协作和功能边界见 HANDOFF.md。
+## 下载
+
+| 平台 | 安装包 |
+| --- | --- |
+| Windows x64 | [RunCoach-Windows-0.1.3-x64.zip](https://github.com/zjj880/run-coach/releases/download/v0.1.3/RunCoach-Windows-0.1.3-x64.zip) — 解压后双击 `RunCoach.exe`，目录内文件需放在一起 |
+| Android 内测 | [run-coach-android-0.1.1.apk](https://github.com/zjj880/run-coach/releases/download/v0.1.3/run-coach-android-0.1.1.apk) — 需允许安装未知来源应用 |
+
+全部版本与校验和见 [Releases](https://github.com/zjj880/run-coach/releases)。
+
+开发协作和功能边界见 [HANDOFF.md](HANDOFF.md)；**AI 智能体（ChatGPT/Codex 等）接手开发请先读 [AGENTS.md](AGENTS.md)**。
 
 ## 启动
 
