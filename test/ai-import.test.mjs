@@ -55,9 +55,9 @@ test('local AI settings and import use a compatible response without exposing th
   assert.equal(calls[1].body.messages[1].content[1].type, 'image_url');
   const inputReview = trainingReviewInput(date, initialState(date).plan, [
     { id: 'test', title: '间歇跑', date, role: '主课', minutes: 30, km: 6, averageHr: 160 },
+    { id: 'other', title: '额外跑步', date, role: '待归类', minutes: 10, km: 1.5, averageHr: 129 },
   ]);
   assert.equal((await post('/ai/review', { ...inputReview, activities: [] })).status, 400);
-  assert.equal((await post('/ai/review', { ...inputReview, activities: [...inputReview.activities, { role: '待归类' }] })).status, 409);
   const reviewed = await (await post('/ai/review', { ...inputReview, checkIn: '私密打卡信息' })).json();
   assert.deepEqual(reviewed, { review: trainingReview });
   assert.deepEqual(JSON.parse(calls[2].body.messages[1].content), inputReview);
@@ -68,6 +68,29 @@ test('local AI settings and import use a compatible response without exposing th
   assert.deepEqual(JSON.parse(calls[3].body.messages[1].content), mood);
   assert.equal((await fetch(base + '/ai/settings', { method: 'DELETE' })).status, 200);
   assert.deepEqual(await (await fetch(base + '/ai/settings')).json(), { configured: false });
+});
+
+test('follow-up questions send the saved review and the corresponding workout data', async (t) => {
+  let sent;
+  const server = createAiServer({ initialAiConfig: { endpoint: 'https://test-provider.invalid/chat/completions', model: 'test', apiKey: 'fake' },
+    fetchImpl: async (_url, options) => {
+      sent = JSON.parse(JSON.parse(options.body).messages[1].content);
+      return Response.json({ choices: [{ message: { content: '实际比计划多跑了 13.4 分钟。' } }] });
+    },
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const input = trainingReviewInput(date, initialState(date).plan, [
+    { id: 'run', title: '跑步', date, role: '主课', roleSource: 'auto', minutes: 53.4, km: 10.11, averageHr: 135 },
+  ]);
+  const messages = [{ role: 'user', text: '执行量怎样？' }, { role: 'assistant', text: '可以先对比时长。' }, { role: 'user', text: '具体差多少？' }];
+  const review = { summary: '主课时长已比较', next: '记录体感' };
+  const response = await fetch('http://127.0.0.1:' + server.address().port + '/ai/review-chat',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input, review, messages }) });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).reply, '实际比计划多跑了 13.4 分钟。');
+  assert.deepEqual(sent.summary, input);
+  assert.deepEqual(sent.conversation, messages);
 });
 
 test('coach keeps the prior turn and separates a follow-up question from a proposal', async (t) => {

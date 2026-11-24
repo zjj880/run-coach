@@ -1,147 +1,133 @@
-import { classifyActivity, visibleActivities, type Activity, type CoachState, type PlanEntry, type Role } from './training.ts';
+import { visibleActivities, type Activity, type CoachState, type PlanEntry, type Role } from './training.ts';
 
-/**
- * 自动归类：根据实际活动的时长、里程、配速、平均心率和先后顺序，
- * 把「待归类」的活动推断为 主课 / 次课 / 热身 / 冷身。
- * 只处理待归类项，用户手动确认过的归属不会被覆盖。
- */
+type RoleSuggestion = { id: string; role: Role; parentId?: string; reason: string };
 
-export type RoleSuggestion = { id: string; role: Role; parentId?: string; reason: string };
+export function paceSecPerKm(activity: Activity) {
+  const seconds = activity.fit?.timerSeconds ?? activity.minutes * 60;
+  return activity.km > 0 && seconds > 0 ? Math.round(seconds / activity.km) : undefined;
+}
 
-const warmupMaxMinutes = 20;
-const coldownMaxMinutes = 20;
-const secondaryMinMinutes = 10;
-const adjacencyMinutes = 30;
-
-const minuteOfDay = (time: string) => {
-  const match = /^(\d{1,2}):(\d{2})/.exec(time);
+const startMinute = (activity: Activity) => {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(activity.time);
   return match ? Number(match[1]) * 60 + Number(match[2]) : undefined;
 };
+const timeOrder = (left: Activity, right: Activity) => (left.time + '|' + left.id).localeCompare(right.time + '|' + right.id);
+const running = (activity: Activity) => activity.sport
+  ? /running|treadmill|trail_run|ultra_run/.test(activity.sport)
+  : /跑|间歇|节奏/.test(activity.title) || (activity.km > 0 && !/骑行|步行|走路|徒步|游泳|划船|力量/.test(activity.title));
+const reliableHr = (activity: Activity) => {
+  const feedback = activity.feedback;
+  if (feedback?.heartRateTrust === '存疑' || (feedback?.cold && feedback.sensor === '腕式' && feedback.heartRateTrust !== '可信')) return undefined;
+  return activity.fit?.averageHr ?? activity.averageHr;
+};
+const closeness = (value: number, target: number, tolerance: number) => Math.max(0, 1 - Math.abs(value - target) / tolerance);
 
-const round1 = (value: number) => Math.round(value * 10) / 10;
-
-export function paceSecPerKm(activity: Activity): number | undefined {
-  return activity.km > 0 && activity.minutes > 0 ? Math.round(activity.minutes * 60 / activity.km) : undefined;
+function explicitTargets(plan: string) {
+  const paces = [...plan.matchAll(/(?<!\d)(\d{1,2})[:：'′](\d{2})(?:["″])?\s*(?:\/\s*(?:公里|千米|km)|每公里)/gi)];
+  const pace = paces.length === 1 && Number(paces[0][2]) < 60 ? Number(paces[0][1]) * 60 + Number(paces[0][2]) : undefined;
+  const hr = /(?:心率|HR)\s*[:：]?\s*(\d{2,3})(?:\s*[-–—~～至]\s*(\d{2,3}))?/i.exec(plan);
+  const heart = hr && Number(hr[1]) >= 70 && Number(hr[2] ?? hr[1]) <= 220 ? (Number(hr[1]) + Number(hr[2] ?? hr[1])) / 2 : undefined;
+  return { pace, heart };
 }
 
-export function paceLabel(activity: Activity): string | undefined {
+function selectMain(candidates: Activity[], plans: PlanEntry[]) {
+  const plan = plans.find((row) => row.current && row.current.type !== '休息')?.current;
+  const keySession = plan?.type === '节奏跑' || plan?.type === '间歇跑';
+  const target = explicitTargets(plan?.detail ?? '');
+  const longest = Math.max(...candidates.map((entry) => entry.minutes));
+  const paces = candidates.map(paceSecPerKm).filter((value): value is number => value !== undefined);
+  const fastest = Math.min(...paces);
+  const heartRates = candidates.map(reliableHr).filter((value): value is number => value !== undefined);
+  const highest = Math.max(...heartRates);
+  function score(activity: Activity) {
+    const pace = paceSecPerKm(activity);
+    const hr = reliableHr(activity);
+    const timeScore = plan?.minutes ? closeness(activity.minutes, plan.minutes, plan.minutes) : activity.minutes / longest;
+    const paceScore = pace !== undefined && (target.pace !== undefined || (keySession && paces.length > 1))
+      ? closeness(pace, target.pace ?? fastest, 120) : 0.5;
+    const hrScore = hr !== undefined && (target.heart !== undefined || (keySession && heartRates.length > 1))
+      ? closeness(hr, target.heart ?? highest, 35) : 0.5;
+    const named = plan?.type && activity.title.includes(plan.type) ? 0.12 : 0;
+    return timeScore * 0.6 + paceScore * 0.24 + hrScore * 0.16 + named;
+  }
+  return [...candidates].sort((left, right) => score(right) - score(left) || right.minutes - left.minutes || timeOrder(left, right))[0];
+}
+
+function lighterThan(activity: Activity, main: Activity) {
   const pace = paceSecPerKm(activity);
-  if (pace === undefined) return undefined;
-  return Math.floor(pace / 60) + ':' + String(pace % 60).padStart(2, '0');
-}
-
-/** 强度分：有平均心率用心率；没有则用配速折算到与心率同一量级。 */
-function intensity(activity: Activity): number {
-  if (activity.averageHr !== undefined) return activity.averageHr;
-  const pace = paceSecPerKm(activity);
-  if (pace !== undefined) return Math.max(100, Math.min(200, Math.round(260 - pace / 2)));
-  return 150;
-}
-
-function describe(activity: Activity) {
-  const parts: string[] = [];
-  if (activity.averageHr !== undefined) parts.push('平均心率 ' + activity.averageHr);
-  const pace = paceLabel(activity);
-  if (pace) parts.push('均配 ' + pace + '/公里');
-  parts.push(round1(activity.minutes) + ' 分钟');
-  if (activity.km > 0) parts.push(round1(activity.km) + ' 公里');
-  return parts.join(' · ');
-}
-
-function byTime(left: Activity, right: Activity) {
-  return (left.time + '|' + left.id).localeCompare(right.time + '|' + right.id);
-}
-
-/** 当天课表里是否有正向训练（非休息、有时长或内容）。 */
-function planWorkouts(plans: PlanEntry[]) {
-  return plans.filter((entry) => entry.current && entry.current.type !== '休息');
-}
-
-function pickMain(pending: Activity[], plans: PlanEntry[]): Activity {
-  const workouts = planWorkouts(plans);
-  if (pending.length === 1) return pending[0];
-  const keyWorkout = workouts.some((entry) => entry.current && ['节奏跑', '间歇跑', '长跑'].includes(entry.current.type));
-  return [...pending].sort((left, right) => {
-    const score = intensity(right) - intensity(left);
-    if (Math.abs(score) >= 3) return score;
-    // 强度接近时，优先时长更接近计划时长的那条
-    const planned = workouts[0]?.current?.minutes ?? 0;
-    if (planned > 0) return Math.abs(left.minutes - planned) - Math.abs(right.minutes - planned);
-    // 仍然接近时，强度课优先取更长的那条，否则取更早的那条
-    if (keyWorkout) return right.minutes - left.minutes;
-    return byTime(left, right);
-  })[0];
+  const mainPace = paceSecPerKm(main);
+  const heart = reliableHr(activity);
+  const mainHr = reliableHr(main);
+  const paceDifference = pace !== undefined && mainPace !== undefined ? pace - mainPace : undefined;
+  const hrDifference = heart !== undefined && mainHr !== undefined ? heart - mainHr : undefined;
+  if ((paceDifference ?? 0) < -15 || (hrDifference ?? 0) > 8) return false;
+  return (paceDifference ?? 0) >= 18 || (hrDifference ?? 0) <= -8;
 }
 
 export function suggestRoles(activities: Activity[], plans: PlanEntry[]): RoleSuggestion[] {
-  const pending = activities.filter((activity) => activity.role === '待归类').sort(byTime);
-  if (!pending.length) return [];
-  const main = pickMain(pending, plans);
+  const pending = activities.filter((activity) => activity.role === '待归类' && activity.roleSource !== 'manual');
+  const planned = plans.some((row) => row.current && row.current.type !== '休息');
+  const runPlanned = plans.some((row) => row.current && /跑/.test(row.current.type));
+  const eligible = pending.filter((activity) => (runPlanned ? running(activity) : true) &&
+    activity.minutes >= 8 && !/热身|冷身|warm.?up|cool.?down/i.test(activity.title));
+  const fixedMain = activities.find((activity) => activity.role === '主课');
+  const main = fixedMain ?? (eligible.length ? selectMain(eligible, plans) : undefined);
   const result: RoleSuggestion[] = [];
-  const mainScore = intensity(main);
-
-  result.push({
-    id: main.id,
-    role: '主课',
-    reason: pending.length === 1 ? '当天唯一一条活动，按计划视为主课' : '强度最高（' + describe(main) + '）',
-  });
-
+  if (!fixedMain && main) {
+    result.push({ id: main.id, role: '主课', reason: eligible.length === 1
+      ? '当天仅一条符合条件的活动，暂作主课比对。'
+      : planned ? '结合计划时长、可用心率和配速选作主课。' : '按时长及可用数据选作主课。' });
+  }
   for (const activity of pending) {
-    if (activity.id === main.id) continue;
-    const before = byTime(activity, main) < 0;
-    const activityStart = minuteOfDay(activity.time);
-    const mainStart = minuteOfDay(main.time);
-    const adjacent = activityStart !== undefined && mainStart !== undefined && (before
-      ? mainStart - activityStart >= -5 && mainStart - activityStart <= adjacencyMinutes
-      : activityStart - (mainStart + main.minutes) >= -5 && activityStart - (mainStart + main.minutes) <= adjacencyMinutes);
-    const short = activity.minutes <= (before ? warmupMaxMinutes : coldownMaxMinutes);
-    const lighter = intensity(activity) < mainScore - 8;
-    if (before && adjacent && short && lighter) {
-      result.push({ id: activity.id, role: '热身', parentId: main.id, reason: '紧接主课之前、' + describe(activity) + '，低于主课强度' });
-    } else if (!before && adjacent && short && lighter) {
-      result.push({ id: activity.id, role: '冷身', parentId: main.id, reason: '紧接主课之后、' + describe(activity) + '，低于主课强度' });
-    } else if (activity.minutes >= secondaryMinMinutes) {
-      result.push({ id: activity.id, role: '次课', reason: '非当日主课，' + describe(activity) });
+    if (activity.id === main?.id) continue;
+    const start = startMinute(activity);
+    const mainStart = main ? startMinute(main) : undefined;
+    if (main && start !== undefined && mainStart !== undefined && running(activity) && running(main) &&
+      activity.minutes <= Math.min(20, main.minutes * 0.75) && lighterThan(activity, main)) {
+      const before = mainStart - (start + activity.minutes);
+      const after = start - (mainStart + main.minutes);
+      if (before >= -2 && before <= 15) {
+        result.push({ id: activity.id, role: '热身', parentId: main.id, reason: '紧邻主课之前，时长较短、配速或可信心率更低。' });
+        continue;
+      }
+      if (after >= -2 && after <= 15) {
+        result.push({ id: activity.id, role: '冷身', parentId: main.id, reason: '紧邻主课之后，时长较短、配速或可信心率更低。' });
+        continue;
+      }
+    }
+    if (activity.minutes >= 10 && !/热身|冷身|warm.?up|cool.?down/i.test(activity.title)) {
+      result.push({ id: activity.id, role: '次课', reason: '作为独立活动记录。' });
     }
   }
   return result;
 }
 
-/** 对单日待归类活动应用自动归类；返回新状态与实际生效的建议。 */
 export function autoClassifyDay(state: CoachState, date: string): { state: CoachState; applied: RoleSuggestion[] } {
   const activities = visibleActivities(state).filter((activity) => activity.date === date);
-  const plans = state.plan.filter((entry) => entry.date === date);
-  const suggestions = suggestRoles(activities, plans);
-  if (!suggestions.length) return { state, applied: [] };
-
-  let next = state;
+  const lockedParents = new Set(activities.filter((item) => item.roleSource !== 'auto' && item.parentId).map((item) => item.parentId));
+  const reconsider = new Set(activities.filter((item) => item.roleSource === 'auto' && !lockedParents.has(item.id)).map((item) => item.id));
+  const working = activities.map((item): Activity => reconsider.has(item.id)
+    ? { ...item, role: '待归类', roleSource: undefined, roleReason: undefined, parentId: undefined } : item);
+  const plan = state.plan.filter((entry) => entry.date === date);
+  const suggestions = new Map(suggestRoles(working, plan).map((item) => [item.id, item]));
   const applied: RoleSuggestion[] = [];
-  // 先定主课/次课，再定热身/冷身（归属依赖主课已存在）
-  for (const role of ['主课', '次课', '热身', '冷身'] as const) {
-    for (const suggestion of suggestions.filter((item) => item.role === role)) {
-      try {
-        next = classifyActivity(next, suggestion.id, suggestion.role, suggestion.parentId);
-        applied.push(suggestion);
-      } catch {
-        // 单条失败（例如归属方不存在）不影响其他活动
-      }
-    }
-  }
-  return { state: next, applied };
+  const next = state.activities.map((item): Activity => {
+    const suggestion = suggestions.get(item.id);
+    if (!suggestion) return reconsider.has(item.id)
+      ? { ...item, role: '待归类', roleSource: undefined, roleReason: undefined, parentId: undefined } : item;
+    if (item.role === suggestion.role && item.parentId === suggestion.parentId && item.roleReason === suggestion.reason) return item;
+    applied.push(suggestion);
+    return { ...item, role: suggestion.role, parentId: suggestion.parentId, roleSource: 'auto', roleReason: suggestion.reason };
+  });
+  return { state: next.some((item, index) => item !== state.activities[index]) ? { ...state, activities: next } : state, applied };
 }
 
-/** 对多个日期批量自动归类（同步后一次性处理最近若干天）。 */
-export function autoClassifyDates(state: CoachState, dates: Iterable<string>): { state: CoachState; applied: RoleSuggestion[] } {
+export function autoClassifyDates(state: CoachState, dates: Iterable<string>) {
   let next = state;
-  const applied: RoleSuggestion[] = [];
-  for (const date of new Set(dates)) {
-    const result = autoClassifyDay(next, date);
-    next = result.state;
-    applied.push(...result.applied);
-  }
-  return { state: next, applied };
+  for (const date of new Set(dates)) next = autoClassifyDay(next, date).state;
+  return { state: next };
 }
 
 export function pendingDates(state: CoachState) {
-  return [...new Set(visibleActivities(state).filter((activity) => activity.role === '待归类').map((activity) => activity.date))].sort();
+  return [...new Set(visibleActivities(state).filter((activity) => activity.role === '待归类' && activity.roleSource !== 'manual').map((activity) => activity.date))].sort();
 }

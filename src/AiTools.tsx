@@ -3,7 +3,7 @@ import { File as NativeFile } from 'expo-file-system';
 import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { dateIsValid, isDefaultDemoPlan, workoutTypes, type ImportRow, type PlanEntry } from './training';
-import { canReviewTraining, type ReviewChatMessage, type SavedReview, type TrainingReview, type TrainingReviewInput } from './evaluation';
+import { canReviewTraining, trainingComparison, type ReviewChatMessage, type SavedReview, type TrainingReview, type TrainingReviewInput } from './evaluation';
 import { FitReview } from './FitReview';
 import { paceSecPerKm } from './autoclassify';
 import type { Activity } from './training';
@@ -61,7 +61,7 @@ export async function requestMoodReply(mood: string, note: string) {
 
 /** 针对已保存的训练评估继续追问，返回教练的纯文本回答。 */
 export async function requestReviewFollowUp(input: TrainingReviewInput, review: TrainingReview, messages: ReviewChatMessage[]) {
-  const { reply } = await aiRequest<{ reply: string }>('/ai/review-chat', 'POST', { input, review, messages });
+  const { reply } = await aiRequest<{ reply: string }>('/ai/review-chat', 'POST', { input, review, messages: messages.slice(-11) });
   return reply;
 }
 
@@ -163,9 +163,10 @@ export function AiSettings({ onClose }: { onClose: () => void }) {
   </Dialog>;
 }
 
-export function TrainingReviewDialog({ input, activities, saved, onSave, onClose, onLoadDetails, onFeedback }: {
+export function TrainingReviewDialog({ input, activities, saved, onSave, onClose, onLoadDetails, onFeedback, onClassify }: {
   input: TrainingReviewInput; saved?: SavedReview; onSave: (review: SavedReview) => void; onClose: () => void;
   activities: Activity[]; onFeedback: (activity: Activity) => void;
+  onClassify: (activity: Activity) => void;
   onLoadDetails?: () => Promise<{ details: number; parsed: number; requested: number }>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -174,11 +175,14 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
   const [chat, setChat] = useState<ReviewChatMessage[]>(saved?.chat ?? []);
   const [question, setQuestion] = useState('');
   const [asking, setAsking] = useState(false);
+  const [showData, setShowData] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const signature = JSON.stringify(input);
   const stale = saved && saved.signature !== signature;
   const primary = input.activities.find((activity) => activity.role === '主课');
   const ready = canReviewTraining(input);
-  const plannedMinutes = input.plan.reduce((sum, item) => sum + (item.minutes ?? 0), 0);
+  const { planned, compared, deltaMinutes } = trainingComparison(input);
+  const working = busy || loadingDetails || asking;
 
   async function evaluate() {
     setBusy(true);
@@ -212,7 +216,8 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
     setNotice('');
     const nextChat: ReviewChatMessage[] = [...chat, { role: 'user', text }];
     try {
-      const reply = await requestReviewFollowUp(input, saved.review, nextChat);
+      const reviewedInput = stale ? JSON.parse(saved.signature) as TrainingReviewInput : input;
+      const reply = await requestReviewFollowUp(reviewedInput, saved.review, nextChat);
       const settled: ReviewChatMessage[] = [...nextChat, { role: 'assistant', text: reply }];
       setChat(settled);
       setQuestion('');
@@ -221,15 +226,31 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
     finally { setAsking(false); }
   }
 
-  return <Dialog title="训练数据评估" onClose={onClose} footer={<>
-    {onLoadDetails && <Button secondary label={loadingDetails ? '正在读取…' : '同步佳明明细与 FIT'} disabled={busy || loadingDetails} onPress={() => void loadDetails()} />}
-    <Button label={busy ? '正在评估…' : saved ? '重新评估' : '用 AI 评估'} disabled={busy || loadingDetails || !ready} onPress={evaluate} />
+  return <Dialog title="训练数据评估" onClose={() => { if (!asking) onClose(); }} footer={<>
+    {onLoadDetails && <Button secondary label={loadingDetails ? '正在读取…' : '同步佳明明细与 FIT'} disabled={working} onPress={() => void loadDetails()} />}
+    <Button label={busy ? '正在评估…' : saved ? '重新评估' : '用 AI 评估'} disabled={working || !ready} onPress={evaluate} />
   </>}>
     <View style={styles.summary}>
-      <Text style={styles.summaryLine}>{input.date} · 计划 {plannedMinutes > 0 ? plannedMinutes + ' 分钟' : '未设时长'}</Text>
-      <Text style={styles.summaryLine}>实际 {minutesLabel(input.total.minutes)} · {roundTo(input.total.km, 2)} 公里 · {input.activities.length} 条活动</Text>
-      {primary && <Text style={styles.summaryLine}>主课 · {primary.title}{primary.core ? ' · 核心段 ' + primary.core : ''}{primary.averageHr ? ' · 均心率 ' + primary.averageHr : ''}</Text>}
+      <Text style={styles.small}>{input.date}</Text>
+      <Text style={styles.summaryLine}>计划 · {input.plan.map((item) => item.type).join('、') || '未安排'}{planned !== null ? ' ' + minutesLabel(planned) : ''}</Text>
+      <Text style={styles.summaryLine}>实际总量 · {minutesLabel(input.total.minutes)} · {roundTo(input.total.km, 2)} 公里</Text>
+      {compared && deltaMinutes !== null && <Text style={styles.summaryLine}>
+        {input.plan.length === 1 ? (primary?.roleSource === 'auto' ? '自动归类的主课' : '主课') +
+          '及关联热身冷身 · ' + minutesLabel(compared.minutes) + ' · ' : '全天总量 · '}
+        {deltaMinutes === 0 ? '与计划时长一致' : (deltaMinutes > 0 ? '比计划多 ' : '比计划少 ') + minutesLabel(Math.abs(deltaMinutes))}
+      </Text>}
     </View>
+    {saved && <View style={styles.field}>
+      {stale && <Text style={styles.notice}>数据已更新，此处是上一次评估。</Text>}
+      <Text style={styles.label}>{saved.review.summary}</Text>
+      <Text style={styles.body}>下次建议 · {saved.review.next}</Text>
+      <View style={styles.buttons}><Button secondary label={showAnalysis ? '收起评估依据' : '查看评估依据'} onPress={() => setShowAnalysis(!showAnalysis)} /></View>
+      {showAnalysis && <>
+        <Text style={styles.body}>计划与执行 · {saved.review.execution}</Text>
+        <Text style={styles.body}>配速与心率 · {saved.review.intensity}</Text>
+        <Text style={styles.body}>数据局限 · {saved.review.limitations}</Text>
+      </>}
+    </View>}
     {activities.map((activity) => {
       const { detail, fit, feedback, title, time, role, minutes, km, averageHr } = activity;
       const metrics = [
@@ -256,36 +277,33 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
       ].filter(Boolean).join(' · ');
       return <View key={activity.id} style={styles.activityRow}>
         <View style={styles.between}>
-          <Text style={styles.label}>{role} · {title}</Text>
+          <Text style={styles.label}>{role}{activity.roleSource === 'auto' ? '（自动）' : ''} · {title}</Text>
           <Text style={styles.small}>{time}</Text>
         </View>
         <Text style={styles.body}>{metrics}</Text>
         {feedbackLine ? <Text style={styles.body}>{feedbackLine}</Text> : null}
-        {detailLine ? <Text style={styles.small}>{detailLine}</Text> : null}
-        {detail?.segmentTotals?.map((segment, index) => <Text key={index} style={styles.small}>{[
+        {showData && activity.roleReason && <Text style={styles.small}>{activity.roleReason}</Text>}
+        {showData && detailLine ? <Text style={styles.small}>{detailLine}</Text> : null}
+        {showData && detail?.segmentTotals?.map((segment, index) => <Text key={index} style={styles.small}>{[
           segmentLabel(segment.type),
           segment.count ? segment.count + ' 段' : undefined,
           durationText(segment.seconds),
           segment.meters ? roundTo(segment.meters / 1000, 2) + ' 公里' : undefined,
           segment.averageHr ? '均心率 ' + Math.round(segment.averageHr) : undefined,
         ].filter(Boolean).join(' · ')}</Text>)}
-        <View style={styles.buttons}><Button secondary label={feedback ? '修改体感' : '填写体感'}
-          onPress={() => onFeedback(activity)} disabled={busy || loadingDetails} /></View>
-        {fit && <FitReview fit={fit} />}
+        <View style={styles.buttons}>
+          <Button secondary label="手动归类" onPress={() => onClassify(activity)} disabled={working} />
+          <Button secondary label={feedback ? '修改体感' : '填写体感'} onPress={() => onFeedback(activity)} disabled={working} />
+        </View>
+        {showData && fit && <FitReview fit={fit} />}
       </View>;
     })}
-    {!ready && <Text style={styles.notice}>{input.activities.length ? '请先在课表确认当天各条活动的归属。' : '当天没有可评估的活动记录。'}</Text>}
-    {stale && <Text style={styles.notice}>当天课表、活动数据或体感已更新，下方是上一次评估。</Text>}
-    {saved && <>
-      <Text style={styles.label}>{saved.review.summary}</Text>
-      <Text style={styles.body}>评估时间 · {new Date(saved.reviewedAt).toLocaleString('zh-CN')}</Text>
-      {([
-        ['计划与执行', saved.review.execution], ['配速与心率', saved.review.intensity],
-        ['下次建议', saved.review.next], ['数据局限', saved.review.limitations],
-      ] as const).map(([label, message]) => <View key={label} style={styles.field}>
-        <Text style={styles.label}>{label}</Text><Text style={styles.body}>{message}</Text>
-      </View>)}
-    </>}
+    {activities.some((item) => !!(item.detail || item.fit || item.roleReason)) && <View style={styles.buttons}>
+      <Button secondary label={showData ? '收起运动数据' : '展开运动数据和曲线'} onPress={() => setShowData(!showData)} />
+    </View>}
+    {!ready && <Text style={styles.notice}>当天没有可评估的活动记录。</Text>}
+    {ready && input.activities.some((activity) => activity.role === '待归类') &&
+      <Text style={styles.small}>待归类活动已计入总量，可在确认归属前查看评估。</Text>}
     {saved && <>
       <Text style={styles.label}>继续问教练</Text>
       {chat.length === 0 && <Text style={styles.small}>可以追问：这个判断的依据、下次怎么练、今天剩下的时间怎么安排。</Text>}
@@ -296,7 +314,7 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
       <Field label="追问" value={question} onChangeText={setQuestion} multiline maxLength={400}
         placeholder="例：这次心率偏高说明什么？下次间歇跑要注意什么？" />
       <View style={styles.buttons}><Button label={asking ? '正在回答…' : '发送追问'} onPress={() => void ask()}
-        disabled={asking || !question.trim()} /></View>
+        disabled={working || !question.trim()} /></View>
     </>}
     {ready && <Text style={styles.body}>点击评估会把当天课表、活动统计、圈摘要和课后体感发给已配置的 AI 服务。</Text>}
     {notice !== '' && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}

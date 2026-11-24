@@ -60,8 +60,21 @@ test('suggestions explain their reason and fall back to pace when heart rate is 
   assert.equal(byId.a.role, '热身');
   assert.equal(byId.a.parentId, 'b');
   assert.equal(byId.c.role, '冷身');
-  assert.match(byId.b.reason, /均配/);
+  assert.match(byId.b.reason, /配速/);
   assert.equal(paceSecPerKm({ id: 'p', date, time: '07:00', title: '跑', minutes: 30, km: 5, role: '待归类' }), 360);
+});
+
+test('late activities do not displace a manual main, and suspect wrist readings do not prevent a pace-based warmup', () => {
+  const state = initialState(date);
+  const records = [
+    { id: 'original', date, time: '08:00', title: '轻松跑', minutes: 40, km: 7.8, averageHr: 135, role: '主课' },
+    { id: 'warm', date, time: '07:50', title: '早上跑', minutes: 10, km: 1.3, averageHr: 182, role: '待归类',
+      feedback: { effort: 3, sensor: '腕式', heartRateTrust: '存疑', cold: true, note: '' } },
+    { id: 'burst', date, time: '18:00', title: '跑步', minutes: 13, km: 4, averageHr: 178, role: '待归类' },
+  ];
+  const result = autoClassifyDay({ ...state, activities: records }, date).state;
+  assert.deepEqual(result.activities.map(({ role, parentId, roleSource }) => [role, parentId, roleSource]),
+    [['主课', undefined, undefined], ['热身', 'original', 'auto'], ['次课', undefined, 'auto']]);
 });
 
 test('batch classification handles several dates and ignores empty days', () => {

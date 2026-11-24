@@ -22,6 +22,13 @@ function metrics(items: Activity[]) {
   };
 }
 
+export function trainingComparison(input: Pick<TrainingReviewInput, 'plan' | 'total' | 'mainWithWarmupAndCooldown'>) {
+  const planned = input.plan.length && input.plan.every((item) => item.minutes !== null)
+    ? round(input.plan.reduce((sum, item) => sum + item.minutes!, 0)) : null;
+  const compared = input.plan.length === 1 ? input.mainWithWarmupAndCooldown : input.plan.length > 1 ? input.total : null;
+  return { planned, compared, deltaMinutes: planned !== null && compared ? round(compared.minutes - planned) : null };
+}
+
 function fitForReview(fit: FitActivity) {
   const count = Math.min(16, fit.laps.length);
   const laps = count === fit.laps.length ? fit.laps : Array.from({ length: count }, (_, index) =>
@@ -46,6 +53,7 @@ export function trainingReviewInput(date: string, plans: PlanEntry[], activities
       parentItem: activity.parentId ? (sessions.findIndex((item) => item.id === activity.parentId) + 1 || null) : null,
       title: activity.title,
       role: activity.role,
+      ...(activity.roleSource ? { roleSource: activity.roleSource } : {}),
       minutes: activity.minutes,
       km: activity.km || null,
       averagePaceSecPerKm: activity.km > 0 ? Math.round(activity.minutes * 60 / activity.km) : null,
@@ -61,6 +69,5 @@ export function trainingReviewInput(date: string, plans: PlanEntry[], activities
 export type TrainingReviewInput = ReturnType<typeof trainingReviewInput>;
 
 export function canReviewTraining(input: TrainingReviewInput) {
-  return input.activities.length > 0 &&
-    (input.activities.length === 1 || input.activities.every((activity) => activity.role !== '待归类'));
+  return input.activities.length > 0;
 }

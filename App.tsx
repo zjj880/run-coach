@@ -36,7 +36,7 @@ type EditorSheet =
   | { type: 'cycle' }
   | { type: 'workout'; date: string; entry?: PlanEntry }
   | { type: 'log'; date: string }
-  | { type: 'classify'; activity: Activity };
+  | { type: 'classify'; activity: Activity; returnToReview?: string };
 type Sheet = EditorSheet | { type: 'aiSettings' } | { type: 'planImport' } | { type: 'review'; date: string } | { type: 'schedule'; date: string } | { type: 'garmin' } | { type: 'coach' }
   | { type: 'activityFeedback'; activity: Activity; returnToReview?: string };
 
@@ -113,7 +113,10 @@ function CoachApp() {
   useEffect(() => {
     let mounted = true;
     AsyncStorage.getItem(key).then((saved) => {
-      if (mounted && saved) setState(JSON.parse(saved) as CoachState);
+      if (mounted && saved) {
+        const loaded = JSON.parse(saved) as CoachState;
+        setState(autoClassifyDates(loaded, pendingDates(loaded)).state);
+      }
     }).catch(() => { if (mounted) setStorageError(true); }).finally(() => {
       if (mounted) setReady(true);
     });
@@ -219,7 +222,7 @@ function CoachApp() {
     try {
       const next = transform(state);
       setState(next);
-      setSheet(null);
+      setSheet(sheet?.type === 'classify' && sheet.returnToReview ? { type: 'review', date: sheet.returnToReview } : null);
       setNotice(message);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '暂时无法保存，请重试。');
@@ -257,17 +260,17 @@ function CoachApp() {
     const ids = activitiesInUse.filter((item) => item.date === day && item.id.startsWith('garmin-cn-')).map((item) => item.id);
     const data = await pullGarminDetails(ids);
     const details = new Map(data.map((record) => [record.id, record]));
-    setState((current) => ({ ...current, activities: current.activities.map((item) => {
+    setState((current) => autoClassifyDay({ ...current, activities: current.activities.map((item) => {
       const record = details.get(item.id);
       return record ? { ...item, detail: record.detail ?? item.detail, fit: record.fit ?? item.fit } : item;
-    }) }));
+    }) }, day).state);
     return { details: data.filter(({ detail }) => detail).length, parsed: data.filter(({ fit }) => fit).length, requested: ids.length };
   }
 
   function finishFeedback(target: Extract<Sheet, { type: 'activityFeedback' }>, feedback?: ActivityFeedback, save = false) {
-    if (save) setState((current) => ({
+    if (save) setState((current) => autoClassifyDay({
       ...current, activities: current.activities.map((item) => item.id === target.activity.id ? { ...item, feedback } : item),
-    }));
+    }, target.activity.date).state);
     if (target.returnToReview) open({ type: 'review', date: target.returnToReview });
     else {
       closeSheet();
@@ -285,7 +288,7 @@ function CoachApp() {
     if (firstDate) {
       setWeek(Math.max(0, Math.floor((Date.parse(firstDate) - Date.parse(result.state.cycleStart)) / (86_400_000 * 7))));
     }
-    setState(result.state);
+    setState(autoClassifyDates(result.state, rows.map((row) => row.date)).state);
     setSheet(null);
     setNotice('已导入 ' + result.added + ' 条训练' + (result.duplicates ? '，跳过 ' + result.duplicates + ' 条重复训练。' : '。'));
   }
@@ -396,7 +399,7 @@ function CoachApp() {
         <View style={styles.rowBetween}><Text style={styles.activityName}>{item.title}</Text><Icon name="chevron-right" size={17} /></View>
         <Text style={styles.small}>{item.time} · {item.minutes} 分钟 · {item.km.toFixed(1)} 公里</Text>
         {item.averageHr !== undefined && <Text style={styles.small}>平均心率 {item.averageHr} 次/分</Text>}
-        <Text style={styles.role}>{item.role}{parent ? ' · ' + parent.title : ''}</Text>
+        <Text style={styles.role}>{item.role}{item.roleSource === 'auto' ? ' · 自动' : ''}{parent ? ' · ' + parent.title : ''}</Text>
         {item.core && <Text style={styles.small}>核心段 {item.core}</Text>}
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={'课后体感 ' + item.title}
@@ -474,9 +477,9 @@ function CoachApp() {
                       }), state.skipped.includes(day) ? '已恢复为待同步。' : '已标记跳过。')}>
                         <Text style={styles.link}>{state.skipped.includes(day) ? '撤销跳过' : '标记跳过'}</Text>
                       </Pressable>}
-                    {day <= date && activities.some((item) => item.role === '待归类') &&
+                    {day <= date && activities.some((item) => item.role === '待归类' && item.roleSource !== 'manual') &&
                       <Pressable accessibilityRole="button" accessibilityLabel={'自动归类 ' + dateLabel(day)}
-                        onPress={() => update((current) => autoClassifyDay(current, day).state, '已按心率/配速自动归类。')}>
+                        onPress={() => update((current) => autoClassifyDay(current, day).state, '已检查自动归类，待确认的活动可手动调整。')}>
                         <Text style={styles.link}>自动归类</Text>
                       </Pressable>}
                     {day <= date && <Pressable accessibilityRole="button" accessibilityLabel={'补记活动 ' + dateLabel(day)}
@@ -562,13 +565,15 @@ function CoachApp() {
         onClose={closeSheet} onImport={saveImportedPlan} />}
       {sheet?.type === 'review' && <TrainingReviewDialog input={trainingReviewInput(sheet.date, state.plan, reviewActivities)}
         activities={reviewActivities} onFeedback={(activity) => open({ type: 'activityFeedback', activity, returnToReview: sheet.date })}
+        onClassify={(activity) => open({ type: 'classify', activity, returnToReview: sheet.date })}
         saved={state.reviews?.[sheet.date]} onSave={(review) => saveReview(sheet.date, review)} onClose={closeSheet}
         onLoadDetails={reviewActivities.some((item) => item.id.startsWith('garmin-cn-')) ? () => syncReviewDetails(sheet.date) : undefined} />}
       {sheet?.type === 'activityFeedback' && <ActivityFeedbackDialog activity={sheet.activity}
         onClose={() => finishFeedback(sheet)} onSave={(feedback) => finishFeedback(sheet, feedback, true)} />}
       {sheet?.type === 'schedule' && <ScheduleEditor initialDay={sheet.date} book={book} onUpdate={saveSchedule} onClose={closeSheet} />}
       {sheet && sheet.type !== 'aiSettings' && sheet.type !== 'planImport' && sheet.type !== 'review' && sheet.type !== 'schedule' && sheet.type !== 'garmin' && sheet.type !== 'coach' && sheet.type !== 'activityFeedback' &&
-        <Editor sheet={sheet} state={state} date={date} notice={notice} onSave={update} onClose={closeSheet} />}
+        <Editor sheet={sheet} state={state} date={date} notice={notice} onSave={update}
+          onClose={() => { if (sheet.type === 'classify' && sheet.returnToReview) open({ type: 'review', date: sheet.returnToReview }); else closeSheet(); }} />}
     </SafeAreaView>
   );
 }
@@ -669,9 +674,10 @@ function Editor({ sheet, state, date, notice, onSave, onClose }: {
       if (entry?.current && action === '缩短' && (!amount || amount >= entry.current.minutes)) return setError('请输入比原课更短的训练时长。');
       const workout = { type: targetType, minutes: targetType === '休息' ? 0 : amount, detail: detail.trim() || undefined };
       onSave((current) => {
-        if (entry) return changePlan(current, entry.id, action, reason, replace ? workout : undefined, action === '改期' ? target : undefined);
+        if (entry) return autoClassifyDates(changePlan(current, entry.id, action, reason, replace ? workout : undefined,
+          action === '改期' ? target : undefined), action === '改期' ? [day, target] : [day]).state;
         if (!cycleContains(current, day)) throw new Error('日期不在当前周期内，请先调整周期。');
-        return { ...current, plan: [...current.plan, makeEntry(day, workout)] };
+        return autoClassifyDay({ ...current, plan: [...current.plan, makeEntry(day, workout)] }, day).state;
       }, entry ? '调整已保存。' : '训练已加入课表。');
     }
   }

@@ -22,7 +22,7 @@ export type ActivityFeedback = {
   cold: boolean;
   note: string;
 };
-export type Activity = { id: string; date: string; time: string; title: string; minutes: number; km: number; averageHr?: number; core?: string; role: Role; parentId?: string; detail?: ActivityDetail; fit?: FitActivity; feedback?: ActivityFeedback };
+export type Activity = { id: string; date: string; time: string; title: string; sport?: string; minutes: number; km: number; averageHr?: number; core?: string; role: Role; parentId?: string; roleSource?: 'auto' | 'manual'; roleReason?: string; detail?: ActivityDetail; fit?: FitActivity; feedback?: ActivityFeedback };
 
 export const sensations = ['良好', '一般', '偏累'] as const;
 export type Sensation = (typeof sensations)[number];
@@ -68,7 +68,8 @@ export function applyGarminSync(state: CoachState, sync: GarminSync): CoachState
   const stored = new Map(state.activities.map((item) => [item.id, item]));
   for (const incoming of activities) {
     const old = stored.get(incoming.id);
-    stored.set(incoming.id, old ? { ...incoming, role: old.role, parentId: old.parentId, core: old.core ?? incoming.core,
+    stored.set(incoming.id, old ? { ...incoming, role: old.role, parentId: old.parentId, roleSource: old.roleSource,
+      roleReason: old.roleReason, core: old.core ?? incoming.core,
       detail: old.detail ?? incoming.detail, fit: old.fit, feedback: old.feedback } : incoming);
   }
   const trainedDates = new Set(activities.map((item) => item.date));
@@ -235,9 +236,11 @@ export function classifyActivity(state: CoachState, id: string, role: Role, pare
   return {
     ...state,
     activities: state.activities.map((item): Activity => {
-      if (item.id === id) return { ...item, role, parentId: needsParent ? parentId : undefined };
-      if (role === '主课' && item.date === activity.date && item.role === '主课' && visible.includes(item)) return { ...item, role: '次课' };
-      if (item.parentId === id && !['主课', '次课'].includes(role)) return { ...item, role: '待归类', parentId: undefined };
+      if (item.id === id) return { ...item, role, parentId: needsParent ? parentId : undefined, roleSource: 'manual', roleReason: undefined };
+      if (role === '主课' && item.date === activity.date && item.role === '主课' && visible.includes(item)) {
+        return { ...item, role: '次课', roleSource: 'manual', roleReason: undefined };
+      }
+      if (item.parentId === id && !['主课', '次课'].includes(role)) return { ...item, role: '待归类', parentId: undefined, roleSource: undefined, roleReason: undefined };
       return item;
     }),
   };

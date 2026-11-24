@@ -68,6 +68,7 @@ function normalizeActivities(input: unknown): Activity[] {
     result.set(id, {
       id: 'garmin-cn-' + id, date: match[1], time: match[2],
       title: name || (typeof kind === 'string' ? types[kind] : undefined) || '佳明活动',
+      ...(typeof kind === 'string' ? { sport: kind } : {}),
       minutes: Math.round(seconds / 6) / 10, km: Math.round((positive(row.distance) ?? 0) / 10) / 100,
       averageHr: positive(row.averageHR) ?? undefined, role: '待归类',
     });
