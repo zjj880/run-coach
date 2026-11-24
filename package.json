@@ -1,0 +1,42 @@
+{
+  "name": "run-coach",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo/metro-runtime": "~58.0.17",
+    "@expo/vector-icons": "^15.0.2",
+    "@garmin/fitsdk": "21.222.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~58.0.26",
+    "expo-calendar": "~58.0.8",
+    "expo-document-picker": "~58.0.5",
+    "expo-file-system": "~58.0.14",
+    "expo-secure-store": "~58.0.3",
+    "expo-status-bar": "~58.0.5",
+    "fflate": "0.8.3",
+    "ical.js": "^2.2.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-web": "^0.21.4"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "electron": "45.4.1",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "ai": "node server/ai.mjs",
+    "phone:build": "expo export --platform web --output-dir .expo/phone-web",
+    "phone:serve": "node scripts/phone-preview.mjs",
+    "windows:build": "node scripts/package-windows.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "private": true
+}
