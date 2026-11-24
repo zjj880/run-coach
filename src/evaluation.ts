@@ -9,7 +9,9 @@ export type TrainingReview = {
   limitations: string;
 };
 
-export type SavedReview = { review: TrainingReview; signature: string; reviewedAt: string };
+export type ReviewChatMessage = { role: 'user' | 'assistant'; text: string };
+
+export type SavedReview = { review: TrainingReview; signature: string; reviewedAt: string; chat?: ReviewChatMessage[] };
 
 const round = (value: number) => Math.round(value * 100) / 100;
 

@@ -19,6 +19,7 @@ import {
   visibleActivities, workoutLabel, workoutTypes, type Activity, type ActivityFeedback, type ChangeAction, type ChangeReason, type CheckIn, type CoachState, type ImportRow,
   type PlanEntry, type Role, type Sensation, type Symptom, type WorkoutType,
 } from './src/training';
+import { autoClassifyDates, autoClassifyDay, pendingDates } from './src/autoclassify';
 
 const ink = '#162f29';
 const muted = '#566960';
@@ -171,8 +172,12 @@ function CoachApp() {
     if (manual) setNotice('');
     try {
       const data = await pullGarmin(target);
-      setState((current) => current.garmin === garmin ? applyGarminSync(current, data) : current);
-      if (manual) setNotice(data.unavailable.length ? '已更新可用数据，缺少' + data.unavailable.join('、') + '。' : '已同步晨间数据和训练记录。');
+      setState((current) => {
+        if (current.garmin !== garmin) return current;
+        const synced = applyGarminSync(current, data);
+        return autoClassifyDates(synced, data.activities.map((item) => item.date)).state;
+      });
+      if (manual) setNotice(data.unavailable.length ? '已更新可用数据，缺少' + data.unavailable.join('、') + '。' : '已同步晨间数据和训练记录，并自动归类活动。');
     } catch (error) {
       if (manual) setNotice(errorMessage(error));
     } finally {
@@ -196,7 +201,10 @@ function CoachApp() {
 
   function saveGarmin(data: GarminSync) {
     lastAutoAttempt.current = Date.now();
-    setState((current) => applyGarminSync(current, data));
+    setState((current) => {
+      const synced = applyGarminSync(current, data);
+      return autoClassifyDates(synced, data.activities.map((item) => item.date)).state;
+    });
   }
 
   function disconnectGarmin() {
@@ -292,7 +300,8 @@ function CoachApp() {
   }
 
   function syncDemo() {
-    update((current) => importDemo(current, date), '已同步演示跑步。可在课表确认主课、次课和热身冷身。');
+    update((current) => autoClassifyDay(importDemo(current, date), date).state,
+      '已同步演示跑步并按心率/配速自动归类，可在课表手动修改。');
   }
 
   function todayContent() {
@@ -330,7 +339,12 @@ function CoachApp() {
               {active && <Action label="调整课表" secondary onPress={() => open({ type: 'workout', date, entry: active })} />}
             </View>
             {!confirmed && coaching?.confirmed && <Text style={styles.small}>今天的数据已更新，可继续对话并重新确认方案。</Text>}
-            {pending > 0 && <Card><Text style={styles.cardTitle}>{pending} 条活动待归类</Text><Action label="打开课表" secondary onPress={() => selectTab('课表')} /></Card>}
+            {pending > 0 && <Card><Text style={styles.cardTitle}>{pending} 条活动待归类</Text>
+              <View style={styles.actions}>
+                <Action label="自动归类" icon="auto-fix" onPress={() => update((current) => autoClassifyDates(current, pendingDates(current)).state, '已按心率/配速自动归类，可在课表手动修改。')} />
+                <Action label="打开课表" secondary onPress={() => selectTab('课表')} />
+              </View>
+            </Card>}
           </View>
           <View style={[styles.column, wide && styles.sideColumn]}>
             <Card>
@@ -459,6 +473,11 @@ function CoachApp() {
                         ...current, skipped: current.skipped.includes(day) ? current.skipped.filter((item) => item !== day) : [...current.skipped, day],
                       }), state.skipped.includes(day) ? '已恢复为待同步。' : '已标记跳过。')}>
                         <Text style={styles.link}>{state.skipped.includes(day) ? '撤销跳过' : '标记跳过'}</Text>
+                      </Pressable>}
+                    {day <= date && activities.some((item) => item.role === '待归类') &&
+                      <Pressable accessibilityRole="button" accessibilityLabel={'自动归类 ' + dateLabel(day)}
+                        onPress={() => update((current) => autoClassifyDay(current, day).state, '已按心率/配速自动归类。')}>
+                        <Text style={styles.link}>自动归类</Text>
                       </Pressable>}
                     {day <= date && <Pressable accessibilityRole="button" accessibilityLabel={'补记活动 ' + dateLabel(day)}
                       onPress={() => open({ type: 'log', date: day })}><Text style={styles.link}>＋ 补记活动</Text></Pressable>}
@@ -624,6 +643,7 @@ function Editor({ sheet, state, date, notice, onSave, onClose }: {
       const activityId = sheet.activity.id;
       onSave((current) => classifyActivity(current, activityId, activityRole, parentId), '活动归属已保存。');
     } else if (sheet.type === 'log') {
+      const logDay = sheet.date;
       const km = Number(distance);
       const averageHr = heartRate.trim() ? Number(heartRate) : undefined;
       if (!activityName.trim() || !Number.isInteger(amount) || amount <= 0 || amount > 1440 || !Number.isFinite(km) || km < 0) {
@@ -636,7 +656,9 @@ function Editor({ sheet, state, date, notice, onSave, onClose }: {
         id: 'manual-' + Date.now(), date: sheet.date, time: '手动补记', title: activityName.trim(),
         minutes: amount, km, averageHr, role: '待归类', core: detail.trim() || undefined,
       };
-      onSave((current) => ({ ...current, activities: [...current.activities, activity], skipped: current.skipped.filter((day) => day !== sheet.date) }), '活动已补记，可在课表里确认归属。');
+      onSave((current) => autoClassifyDay({
+        ...current, activities: [...current.activities, activity], skipped: current.skipped.filter((day) => day !== logDay),
+      }, logDay).state, '活动已补记，并按心率/配速自动归类。');
     } else {
       const day = sheet.date;
       const replace = !entry || !['取消', '改期'].includes(action);

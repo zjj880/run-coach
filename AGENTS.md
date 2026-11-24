@@ -34,7 +34,7 @@ npm run windows:build                     # Electron 打包 → dist/RunCoach-Wi
 Get-ChildItem test\*.mjs | ForEach-Object { node $_.FullName; if ($LASTEXITCODE) { Write-Error $_ } }
 ```
 
-当前基线：typecheck 通过，6 个测试文件共 **18 个用例**全部通过。
+当前基线：typecheck 通过，7 个测试文件共 **24 个用例**全部通过。
 
 ## 3. 目录与职责
 
@@ -42,6 +42,7 @@ Get-ChildItem test\*.mjs | ForEach-Object { node $_.FullName; if ($LASTEXITCODE)
 | --- | --- |
 | `App.tsx` | 唯一入口。3 个 Tab（今天/课表/我的）+ 所有内联 Modal 表单 + 全局状态 + 样式表（827 行，单文件巨石） |
 | `src/training.ts` | **领域核心**：类型、课表、改课、活动归类、导入去重、当日建议规则（`getAdvice`） |
+| `src/autoclassify.ts` | **自动归类**：按平均心率/配速/时序/相邻性把「待归类」活动推断为主课、次课、热身、冷身；只动待归类项，手动归属优先 |
 | `src/evaluation.ts` | 训练评估输入构建（按角色汇总、主课关联、FIT 摘要裁剪）与 `canReviewTraining` 门禁 |
 | `src/schedule.ts` | 时间窗、忙碌区间、空档计算、当天可选训练时段 |
 | `src/calendarImport.ts` | ICS 解析（含 RRULE 展开、时区换算、上限 5 万次展开） |
@@ -119,6 +120,7 @@ Windows 桌面 ──► run-coach://app/（Electron 私有协议）
 - AI 只发送「完成当前任务所需」的字段，且每种能力有明确白名单：
   - 课表识别 → 用户主动提交的文字/图片
   - 训练评估 → 所选日期的课表 + 活动摘要（不含原始 FIT/GPS/完整采样）
+  - 评估追问 → 已保存的评估结果 + 同一份评估输入 + 最多 12 轮对话（服务端重建白名单，额外字段不外发）
   - 心情回应 → 仅心情与备注（测试已断言多余字段不会外发）
   - 教练对话 → 上下文 + 最近 13 轮
 - 所有模型返回都必须过格式校验（`decodeRows`/`decodeReview`/`decodeCoach`），拒绝即报 502，不做「猜测性修复」。
@@ -132,6 +134,8 @@ Windows 桌面 ──► run-coach://app/（Electron 私有协议）
 **加一个弹窗/表单** → `App.tsx` 的 `Sheet` 联合类型加一项 + 渲染处加 `sheet?.type === 'xxx'` 分支 + 表单组件（新文件放 `src/`，复用 `AiTools.tsx` 的 `Dialog/Button/Field`）。
 
 **加一条建议规则** → `src/training.ts` 的 `getAdvice()`，按第 4 节优先级插入；同步在 `test/training.test.mjs` 加断言。
+
+**改自动归类规则** → `src/autoclassify.ts`：`suggestRoles()` 决定角色（心率 > 配速 > 时序相邻），`autoClassifyDay()` 复用 `classifyActivity()` 落地并遵守归属不变量；测试见 `test/autoclassify.test.mjs`。同步、演示同步、手动补记后都会自动执行，用户手动改过的归属不会被覆盖。
 
 **加一个 AI 能力** → `server/ai.mjs`：写 prompt 常量 + 输入校验函数 + 输出解码函数 + 一个 `if (route === 'POST /ai/xxx')` 分支；客户端在 `src/AiTools.tsx` 用 `aiRequest` 调；测试放 `test/ai-import.test.mjs`（用 `createAiServer({fetchImpl})` 注入假模型）。
 

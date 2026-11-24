@@ -97,3 +97,31 @@ test('coach keeps the prior turn and separates a follow-up question from a propo
   assert.deepEqual(await send(continued), replies[1]);
   assert.deepEqual(inputs[1], { context, conversation: continued });
 });
+
+test('review follow-up forwards only the review context and returns the model answer', async (t) => {
+  const calls = [];
+  const server = createAiServer({
+    initialAiConfig: { endpoint: 'https://test-provider.invalid/chat/completions', model: 'test', apiKey: 'fake' },
+    fetchImpl: async (_url, options) => {
+      calls.push(JSON.parse(options.body));
+      return Response.json({ choices: [{ message: { content: '这次心率偏高主要出现在后半程，下次把热身延长到 15 分钟。' } }] });
+    },
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const url = 'http://127.0.0.1:' + server.address().port + '/ai/review-chat';
+  const input = trainingReviewInput(date, initialState(date).plan, [
+    { id: 'test', title: '轻松跑', date, role: '主课', minutes: 40, km: 7.4, averageHr: 135 },
+  ]);
+  const review = { summary: '完成主课', execution: '按计划执行', intensity: '配速稳定', next: '保持当前安排', limitations: '没有分段数据' };
+  const post = (body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+  assert.equal((await post({ review, input, messages: [] })).status, 400);
+  assert.equal((await post({ input, messages: [{ role: 'user', text: '心率为什么高' }] })).status, 400);
+  const answered = await post({ review, input, messages: [{ role: 'user', text: '心率为什么高' }], checkIn: '不应发出的打卡' });
+  assert.equal(answered.status, 200);
+  assert.match((await answered.json()).reply, /热身/);
+  const forwarded = JSON.parse(calls[0].messages[1].content);
+  assert.deepEqual(Object.keys(forwarded).sort(), ['conversation', 'review', 'summary']);
+  assert.equal(JSON.stringify(forwarded).includes('不应发出的打卡'), false);
+});

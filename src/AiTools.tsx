@@ -3,8 +3,9 @@ import { File as NativeFile } from 'expo-file-system';
 import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { dateIsValid, isDefaultDemoPlan, workoutTypes, type ImportRow, type PlanEntry } from './training';
-import { canReviewTraining, type SavedReview, type TrainingReview, type TrainingReviewInput } from './evaluation';
+import { canReviewTraining, type ReviewChatMessage, type SavedReview, type TrainingReview, type TrainingReviewInput } from './evaluation';
 import { FitReview } from './FitReview';
+import { paceSecPerKm } from './autoclassify';
 import type { Activity } from './training';
 
 const localEndpoint = 'http://127.0.0.1:8091';
@@ -16,7 +17,21 @@ const maxImageBytes = 5 * 1024 * 1024;
 const segmentLabels: Record<string, string> = {
   INTERVAL_WARMUP: '热身', INTERVAL_ACTIVE: '工作段', INTERVAL_RECOVERY: '恢复段',
   INTERVAL_REST: '休息段', INTERVAL_COOLDOWN: '冷身', RUN: '跑步', WALK: '步行',
+  RWD_RUN: '跑步段', RWD_WALK: '步行段', RWD_STAND: '站立段', RWD_MOVE: '移动段', RWD_RUN_WALK: '跑走结合',
 };
+const segmentLabel = (type: string) => segmentLabels[type] ?? type;
+
+const roundTo = (value: number, digits = 0) => {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+};
+const minutesLabel = (minutes: number) => roundTo(minutes, 1) + ' 分钟';
+const paceText = (secondsPerKm?: number | null) => secondsPerKm
+  ? Math.floor(secondsPerKm / 60) + ':' + String(Math.round(secondsPerKm % 60)).padStart(2, '0') + '/公里'
+  : undefined;
+const durationText = (seconds?: number | null) => seconds === undefined || seconds === null
+  ? undefined
+  : Math.floor(seconds / 60) + ' 分 ' + String(Math.round(seconds % 60)).padStart(2, '0') + ' 秒';
 type Config = { configured: true; endpoint: string; model: string } | { configured: false };
 type RowDraft = Omit<ImportRow, 'minutes'> & { minutes: string; skip: boolean };
 type SelectedSource = { name: string; image?: string };
@@ -41,6 +56,12 @@ export const errorMessage = (error: unknown) => error instanceof Error ? error.m
 
 export async function requestMoodReply(mood: string, note: string) {
   const { reply } = await aiRequest<{ reply: string }>('/ai/mood', 'POST', { mood, note });
+  return reply;
+}
+
+/** 针对已保存的训练评估继续追问，返回教练的纯文本回答。 */
+export async function requestReviewFollowUp(input: TrainingReviewInput, review: TrainingReview, messages: ReviewChatMessage[]) {
+  const { reply } = await aiRequest<{ reply: string }>('/ai/review-chat', 'POST', { input, review, messages });
   return reply;
 }
 
@@ -150,17 +171,24 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
   const [busy, setBusy] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [notice, setNotice] = useState('');
+  const [chat, setChat] = useState<ReviewChatMessage[]>(saved?.chat ?? []);
+  const [question, setQuestion] = useState('');
+  const [asking, setAsking] = useState(false);
   const signature = JSON.stringify(input);
   const stale = saved && saved.signature !== signature;
   const primary = input.activities.find((activity) => activity.role === '主课');
   const ready = canReviewTraining(input);
+  const plannedMinutes = input.plan.reduce((sum, item) => sum + (item.minutes ?? 0), 0);
 
   async function evaluate() {
     setBusy(true);
     setNotice('');
     try {
       const { review } = await aiRequest<{ review: TrainingReview }>('/ai/review', 'POST', input);
-      onSave({ review, signature, reviewedAt: new Date().toISOString() });
+      const savedReview: SavedReview = { review, signature, reviewedAt: new Date().toISOString() };
+      setChat([]);
+      setQuestion('');
+      onSave(savedReview);
     } catch (error) { setNotice(errorMessage(error)); }
     finally { setBusy(false); }
   }
@@ -177,45 +205,74 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
     finally { setLoadingDetails(false); }
   }
 
+  async function ask() {
+    const text = question.trim();
+    if (!text || asking || !saved) return;
+    setAsking(true);
+    setNotice('');
+    const nextChat: ReviewChatMessage[] = [...chat, { role: 'user', text }];
+    try {
+      const reply = await requestReviewFollowUp(input, saved.review, nextChat);
+      const settled: ReviewChatMessage[] = [...nextChat, { role: 'assistant', text: reply }];
+      setChat(settled);
+      setQuestion('');
+      onSave({ ...saved, chat: settled });
+    } catch (error) { setNotice(errorMessage(error)); }
+    finally { setAsking(false); }
+  }
+
   return <Dialog title="训练数据评估" onClose={onClose} footer={<>
     {onLoadDetails && <Button secondary label={loadingDetails ? '正在读取…' : '同步佳明明细与 FIT'} disabled={busy || loadingDetails} onPress={() => void loadDetails()} />}
     <Button label={busy ? '正在评估…' : saved ? '重新评估' : '用 AI 评估'} disabled={busy || loadingDetails || !ready} onPress={evaluate} />
   </>}>
-    <Text style={styles.body}>{input.date} · {input.activities.length} 条活动 · {input.total.minutes} 分钟 · {input.total.km} 公里</Text>
-    {primary && <Text style={styles.body}>
-      主课 · {primary.title}{primary.core ? ' · 核心段 ' + primary.core : ''}{primary.averageHr ? ' · 平均心率 ' + primary.averageHr + ' 次/分' : ''}
-    </Text>}
+    <View style={styles.summary}>
+      <Text style={styles.summaryLine}>{input.date} · 计划 {plannedMinutes > 0 ? plannedMinutes + ' 分钟' : '未设时长'}</Text>
+      <Text style={styles.summaryLine}>实际 {minutesLabel(input.total.minutes)} · {roundTo(input.total.km, 2)} 公里 · {input.activities.length} 条活动</Text>
+      {primary && <Text style={styles.summaryLine}>主课 · {primary.title}{primary.core ? ' · 核心段 ' + primary.core : ''}{primary.averageHr ? ' · 均心率 ' + primary.averageHr : ''}</Text>}
+    </View>
     {activities.map((activity) => {
-      const { detail, fit, feedback, title, time, role } = activity;
-      return <View key={activity.id} style={styles.field}>
-      <Text style={styles.label}>{title} · {time} · {role}</Text>
-      {feedback && <Text style={styles.body}>{[
+      const { detail, fit, feedback, title, time, role, minutes, km, averageHr } = activity;
+      const metrics = [
+        minutesLabel(minutes),
+        km > 0 ? roundTo(km, 2) + ' 公里' : undefined,
+        paceText(paceSecPerKm(activity)),
+        averageHr !== undefined ? '均心率 ' + averageHr : undefined,
+      ].filter(Boolean).join(' · ');
+      const feedbackLine = feedback && [
         feedback.effort !== null && 'RPE ' + feedback.effort + '/10',
         feedback.sensor !== '未注明' && feedback.sensor,
         feedback.heartRateTrust !== '未评估' && '心率' + feedback.heartRateTrust,
         feedback.cold && '天气偏冷', feedback.note,
-      ].filter(Boolean).join(' · ')}</Text>}
-      <View style={styles.buttons}><Button secondary label={feedback ? '修改这节课体感' : '填写这节课体感'} onPress={() => onFeedback(activity)}
-        disabled={busy || loadingDetails} /></View>
-      {detail && <Text style={styles.body}>{[
-        detail.maxHr && '最高心率 ' + Math.round(detail.maxHr) + ' 次/分',
-        detail.runningCadenceSpm && '平均步频 ' + Math.round(detail.runningCadenceSpm) + ' 步/分',
-        detail.strideLengthCm && '步幅 ' + Math.round(detail.strideLengthCm) + ' 厘米',
-        detail.elevationGainM && '爬升 ' + Math.round(detail.elevationGainM) + ' 米',
-        detail.averagePowerW && '均功率 ' + Math.round(detail.averagePowerW) + ' 瓦',
-        detail.movingSeconds && '移动 ' + Math.round(detail.movingSeconds / 60) + ' 分钟',
-        detail.aerobicTrainingEffect && '有氧效果 ' + detail.aerobicTrainingEffect,
-        detail.anaerobicTrainingEffect && '无氧效果 ' + detail.anaerobicTrainingEffect,
-      ].filter(Boolean).join(' · ')}</Text>}
-      {detail?.segmentTotals?.map((segment, index) => <Text key={index} style={styles.body}>{[
-        '分段汇总 · ' + (segmentLabels[segment.type] ?? segment.type),
-        segment.count && segment.count + ' 段',
-        segment.seconds && Math.round(segment.seconds) + ' 秒',
-        segment.meters && Math.round(segment.meters) + ' 米',
-        segment.averageHr && '平均心率 ' + Math.round(segment.averageHr) + ' 次/分',
-      ].filter(Boolean).join(' · ')}</Text>)}
-      {fit ? <FitReview fit={fit} /> : activity.id.startsWith('garmin-cn-') && <Text style={styles.body}>暂无 FIT 圈记录或曲线。</Text>}
-    </View>;
+      ].filter(Boolean).join(' · ');
+      const detailLine = detail && [
+        detail.maxHr !== undefined && '最高心率 ' + Math.round(detail.maxHr),
+        detail.runningCadenceSpm !== undefined && '步频 ' + Math.round(detail.runningCadenceSpm),
+        detail.strideLengthCm !== undefined && '步幅 ' + Math.round(detail.strideLengthCm) + 'cm',
+        detail.elevationGainM !== undefined && '爬升 ' + Math.round(detail.elevationGainM) + 'm',
+        detail.averagePowerW !== undefined && '功率 ' + Math.round(detail.averagePowerW) + 'W',
+        detail.movingSeconds !== undefined && '移动 ' + Math.round(detail.movingSeconds / 60) + ' 分',
+        detail.aerobicTrainingEffect !== undefined && '有氧 ' + roundTo(detail.aerobicTrainingEffect, 1),
+        detail.anaerobicTrainingEffect !== undefined && '无氧 ' + roundTo(detail.anaerobicTrainingEffect, 1),
+      ].filter(Boolean).join(' · ');
+      return <View key={activity.id} style={styles.activityRow}>
+        <View style={styles.between}>
+          <Text style={styles.label}>{role} · {title}</Text>
+          <Text style={styles.small}>{time}</Text>
+        </View>
+        <Text style={styles.body}>{metrics}</Text>
+        {feedbackLine ? <Text style={styles.body}>{feedbackLine}</Text> : null}
+        {detailLine ? <Text style={styles.small}>{detailLine}</Text> : null}
+        {detail?.segmentTotals?.map((segment, index) => <Text key={index} style={styles.small}>{[
+          segmentLabel(segment.type),
+          segment.count ? segment.count + ' 段' : undefined,
+          durationText(segment.seconds),
+          segment.meters ? roundTo(segment.meters / 1000, 2) + ' 公里' : undefined,
+          segment.averageHr ? '均心率 ' + Math.round(segment.averageHr) : undefined,
+        ].filter(Boolean).join(' · ')}</Text>)}
+        <View style={styles.buttons}><Button secondary label={feedback ? '修改体感' : '填写体感'}
+          onPress={() => onFeedback(activity)} disabled={busy || loadingDetails} /></View>
+        {fit && <FitReview fit={fit} />}
+      </View>;
     })}
     {!ready && <Text style={styles.notice}>{input.activities.length ? '请先在课表确认当天各条活动的归属。' : '当天没有可评估的活动记录。'}</Text>}
     {stale && <Text style={styles.notice}>当天课表、活动数据或体感已更新，下方是上一次评估。</Text>}
@@ -228,6 +285,18 @@ export function TrainingReviewDialog({ input, activities, saved, onSave, onClose
       ] as const).map(([label, message]) => <View key={label} style={styles.field}>
         <Text style={styles.label}>{label}</Text><Text style={styles.body}>{message}</Text>
       </View>)}
+    </>}
+    {saved && <>
+      <Text style={styles.label}>继续问教练</Text>
+      {chat.length === 0 && <Text style={styles.small}>可以追问：这个判断的依据、下次怎么练、今天剩下的时间怎么安排。</Text>}
+      {chat.map((message, index) => <View key={index} style={[styles.bubble, message.role === 'user' && styles.mine]}>
+        <Text style={styles.small}>{message.role === 'user' ? '你' : 'AI 教练'}</Text>
+        <Text style={styles.body}>{message.text}</Text>
+      </View>)}
+      <Field label="追问" value={question} onChangeText={setQuestion} multiline maxLength={400}
+        placeholder="例：这次心率偏高说明什么？下次间歇跑要注意什么？" />
+      <View style={styles.buttons}><Button label={asking ? '正在回答…' : '发送追问'} onPress={() => void ask()}
+        disabled={asking || !question.trim()} /></View>
     </>}
     {ready && <Text style={styles.body}>点击评估会把当天课表、活动统计、圈摘要和课后体感发给已配置的 AI 服务。</Text>}
     {notice !== '' && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
@@ -381,4 +450,10 @@ const styles = StyleSheet.create({
   activeChip: { backgroundColor: '#e6f1e7', borderColor: '#8cb49a' },
   row: { padding: 12, borderWidth: 1, borderColor: '#dfe7df', borderRadius: 11, gap: 8 },
   notice: { backgroundColor: '#e6f1e7', color: '#162f29', fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
+  summary: { gap: 3, padding: 10, borderRadius: 10, backgroundColor: '#eef5ee' },
+  summaryLine: { color: '#162f29', fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  activityRow: { padding: 11, borderWidth: 1, borderColor: '#dfe7df', borderRadius: 11, gap: 5 },
+  bubble: { backgroundColor: '#eef5ee', borderRadius: 10, padding: 10, gap: 3 },
+  mine: { marginLeft: 28, backgroundColor: '#f3f4f0' },
+  small: { color: '#566960', fontSize: 12, lineHeight: 18 },
 });
