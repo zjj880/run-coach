@@ -98,6 +98,34 @@ test('coach keeps the prior turn and separates a follow-up question from a propo
   assert.deepEqual(inputs[1], { context, conversation: continued });
 });
 
+test('OpenCode endpoints get a stable x-opencode-session header, other providers do not', async (t) => {
+  const seen = [];
+  const startServer = async (endpoint) => {
+    const server = createAiServer({
+      initialAiConfig: { endpoint, model: 'test', apiKey: 'fake' },
+      fetchImpl: async (_url, options) => {
+        seen.push(options.headers);
+        return Response.json({ choices: [{ message: { content: '好' } }] });
+      },
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => server.close());
+    return 'http://127.0.0.1:' + server.address().port;
+  };
+
+  const opencode = await startServer('https://opencode.ai/inference/go/v1/chat/completions');
+  await fetch(opencode + '/ai/mood', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mood: '有点累', note: '' }),
+  });
+  const other = await startServer('https://test-provider.invalid/v1/chat/completions');
+  await fetch(other + '/ai/mood', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mood: '有点累', note: '' }),
+  });
+
+  assert.match(seen[0]['x-opencode-session'], /^[0-9a-f-]{36}$/i);
+  assert.equal(seen[1]['x-opencode-session'], undefined);
+});
+
 test('review follow-up forwards only the review context and returns the model answer', async (t) => {
   const calls = [];
   const server = createAiServer({

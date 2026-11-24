@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { dateIsValid, workoutTypes } from '../src/training.ts';
 import { syncGarminDaily, syncGarminDetails, validateGarminKey } from '../src/garmin.ts';
@@ -132,12 +133,29 @@ function publicConfig(config) {
   return config ? { configured: true, endpoint: config.endpoint, model: config.model } : { configured: false };
 }
 
-async function complete(fetchImpl, config, messages) {
+/**
+ * OpenCode（Zen / Go）要求每个请求带稳定的 x-opencode-session 用于路由与缓存，
+ * 缺失会直接返回 400 MissingSessionID。其他服务商不受影响，因此只对 opencode.ai 发送。
+ */
+function sessionHeaders(endpoint, sessionId) {
+  try {
+    const host = new URL(endpoint).hostname;
+    return /(^|\.)opencode\.ai$/i.test(host) ? { 'x-opencode-session': sessionId } : {};
+  } catch {
+    return {};
+  }
+}
+
+async function complete(fetchImpl, config, messages, sessionId) {
   let response;
   try {
     response = await fetchImpl(config.endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + config.apiKey,
+        ...(sessionId ? sessionHeaders(config.endpoint, sessionId) : {}),
+      },
       body: JSON.stringify({ model: config.model, messages }),
       redirect: 'error',
       signal: AbortSignal.timeout(65_000),
@@ -253,6 +271,8 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
   let revision = 0;
   let garminKey = initialGarminKey;
   let garminRevision = 0;
+  const sessionId = randomUUID();
+  const callModel = (profile, messages) => complete(fetchImpl, profile, messages, sessionId);
   return createServer(async (request, response) => {
     const origin = request.headers.origin;
     response.setHeader('Cache-Control', 'no-store');
@@ -322,7 +342,7 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
       if (route === 'POST /ai/settings') {
         const version = ++revision;
         const pending = toConfig(await readJson(request), config);
-        await complete(fetchImpl, pending, [{ role: 'user', content: 'Reply only: OK' }]);
+        await callModel(pending, [{ role: 'user', content: 'Reply only: OK' }]);
         if (revision !== version) throw new ApiError(409, 'AI 设置已更新，请重新打开查看。');
         if (saveCredential) await saveCredential('ai', pending);
         config = pending;
@@ -332,21 +352,21 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
         if (!config) throw new ApiError(409, '请先在「我的 → AI 接口」测试并保存配置。');
         const active = config;
         const data = await readJson(request);
-        const result = await complete(fetchImpl, active, importMessages(data));
+        const result = await callModel(active, importMessages(data));
         return send(200, { rows: decodeRows(result) });
       }
       if (route === 'POST /ai/review') {
         if (!config) throw new ApiError(409, '请先在「我的 → AI 接口」测试并保存配置。');
         const active = config;
         const data = await readJson(request);
-        const result = await complete(fetchImpl, active, reviewMessages(data));
+        const result = await callModel(active, reviewMessages(data));
         return send(200, { review: decodeReview(result) });
       }
       if (route === 'POST /ai/review-chat') {
         if (!config) throw new ApiError(409, '请先在「我的 → AI 接口」测试并保存配置。');
         const active = config;
         const messages = reviewChatMessages(await readJson(request));
-        const text = (await complete(fetchImpl, active, messages)).trim().slice(0, 900);
+        const text = (await callModel(active, messages)).trim().slice(0, 900);
         if (!text) throw new ApiError(502, '模型没有返回可读取的回答。');
         return send(200, { reply: text });
       }
@@ -354,7 +374,7 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
         if (!config) throw new ApiError(409, '请先在「我的 → AI 接口」测试并保存配置。');
         const active = config;
         const messages = coachMessages(await readJson(request));
-        return send(200, decodeCoach(await complete(fetchImpl, active, messages)));
+        return send(200, decodeCoach(await callModel(active, messages)));
       }
       if (route === 'POST /ai/mood') {
         if (!config) throw new ApiError(409, '请先在「我的 → AI 接口」测试并保存配置。');
@@ -364,7 +384,7 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
         const note = field(data, 'note');
         if (!mood && !note) throw new ApiError(400, '请先填入心情或备注。');
         if (mood.length > 80 || note.length > 600) throw new ApiError(400, '心情最多 80 字，备注最多 600 字。');
-        const result = await complete(fetchImpl, active, [
+        const result = await callModel(active, [
           { role: 'system', content: moodPrompt }, { role: 'user', content: JSON.stringify({ mood, note }) },
         ]);
         return send(200, { reply: result.trim().slice(0, 420) });
