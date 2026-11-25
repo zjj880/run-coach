@@ -40,6 +40,10 @@ export type Health = {
   sleepMinutes: number | null; hrv: number | null; restingHr: number | null;
   reference?: { sleepLow: number | null; hrvLow: number | null; restingHrHigh: number | null };
 };
+export type TrainingPeriod = { id: string; name: string; from: string; to: string };
+
+export const periodPresets = ['基础期', '专项期', '调整期', '比赛期', '恢复期'] as const;
+
 export type CoachState = {
   cycleStart: string;
   weeks: number;
@@ -55,7 +59,41 @@ export type CoachState = {
   availability?: ScheduleBook;
   garmin?: GarminSnapshot;
   coaching?: Record<string, CoachDay>;
+  /** 用户自定义的训练周期（基础期/专项期/调整期等），按日期区间划分。 */
+  periods?: TrainingPeriod[];
 };
+
+export function periodForDate(state: CoachState, date: string): TrainingPeriod | undefined {
+  return state.periods?.find((period) => date >= period.from && date <= period.to);
+}
+
+export function periodTotals(state: CoachState) {
+  return (state.periods ?? []).map((period) => {
+    const activities = visibleActivities(state).filter((item) => item.date >= period.from && item.date <= period.to);
+    const days = new Set(activities.map((item) => item.date)).size;
+    return {
+      period,
+      activities: activities.length,
+      days,
+      km: Math.round(activities.reduce((sum, item) => sum + item.km, 0) * 10) / 10,
+      minutes: Math.round(activities.reduce((sum, item) => sum + item.minutes, 0)),
+    };
+  });
+}
+
+/** 让训练周期覆盖给定日期范围（历史活动导入后，课表才能翻到那些周）。 */
+export function ensureCycleCovers(state: CoachState, dates: string[]): CoachState {
+  const valid = dates.filter(dateIsValid);
+  if (!valid.length) return state;
+  const first = valid.reduce((low, date) => (date < low ? date : low), valid[0]);
+  const last = valid.reduce((high, date) => (date > high ? date : high), valid[0]);
+  const cycleEnd = addDays(state.cycleStart, state.weeks * 7 - 1);
+  const start = first < state.cycleStart ? weekStart(first) : state.cycleStart;
+  const end = last > cycleEnd ? last : cycleEnd;
+  const weeks = Math.max(1, Math.min(104, Math.ceil(((Date.parse(end) - Date.parse(start)) / 86_400_000 + 1) / 7)));
+  if (start === state.cycleStart && weeks === state.weeks) return state;
+  return { ...state, cycleStart: start, weeks };
+}
 
 export const defaultCheckIn: CheckIn = { sensation: '一般', symptoms: ['无不适'], minutes: 45, schedule: '', mood: '' };
 export const demoHealth: Health = { sleepMinutes: 370, hrv: 42, restingHr: 57, reference: { sleepLow: 390, hrvLow: 46, restingHrHigh: 55 } };
