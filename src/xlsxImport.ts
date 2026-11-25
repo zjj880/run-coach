@@ -289,14 +289,22 @@ export function mapTrainingWorkbook(bytes: Uint8Array): MappedWorkbook {
   const library = byName.get('力量与跑技动作');
   if (library && fallbackDate) {
     const groups = new Map<string, string[]>();
+    let current = '其它说明';
+    const moduleKey = (module: string) => {
+      if (/^A|力量\s*A/.test(module)) return '力量 A';
+      if (/^B|力量\s*B/.test(module)) return '力量 B';
+      if (/^H|跑技|动态|短加速/.test(module)) return '跑技 H';
+      if (/^M|活动度/.test(module)) return '活动度 M';
+      return undefined;
+    };
     for (const row of library.rows) {
       const module = flattenText(row[0] ?? '');
       const action = flattenText(row[1] ?? '');
-      if (!module || !action || module === '模块' || action === '动作') continue;
-      const key = /A\s*力量|(^|\s)A(?![a-z])/.test(module) ? '力量 A'
-        : /B\s*力量|(^|\s)B(?![a-z])/.test(module) ? '力量 B'
-          : /^H|跑技|动态|短加速/.test(module) ? '跑技 H'
-            : /^M|活动度/.test(module) ? '活动度 M' : module.slice(0, 20);
+      if (module === '模块' && action === '动作') continue;
+      const explicit = module ? moduleKey(module) : undefined;
+      if (explicit) current = explicit;
+      const key = explicit ?? (module ? '其它说明' : current);
+      if (!action) continue;
       const line = action + (row[2] ? '（' + flattenText(row[2]) + '）' : '') + (row[3] ? '：' + flattenText(row[3]) : '');
       const list = groups.get(key) ?? [];
       list.push(line);
