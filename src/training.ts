@@ -44,6 +44,17 @@ export type TrainingPeriod = { id: string; name: string; from: string; to: strin
 
 export const periodPresets = ['基础期', '专项期', '调整期', '比赛期', '恢复期'] as const;
 
+export const noteKinds = ['力量', '跑技', '恢复', '比赛', '学习'] as const;
+export type NoteKind = (typeof noteKinds)[number];
+export type TrainingNote = {
+  id: string;
+  date: string;
+  kind: NoteKind;
+  title?: string;
+  text: string;
+  source?: 'xlsx' | 'manual';
+};
+
 export type CoachState = {
   cycleStart: string;
   weeks: number;
@@ -61,7 +72,25 @@ export type CoachState = {
   coaching?: Record<string, CoachDay>;
   /** 用户自定义的训练周期（基础期/专项期/调整期等），按日期区间划分。 */
   periods?: TrainingPeriod[];
+  /** 训练笔记：力量、跑技、恢复、比赛、学习等非跑步主课记录。 */
+  notes?: TrainingNote[];
 };
+
+export function notesOnDay(state: CoachState, date: string): TrainingNote[] {
+  return (state.notes ?? []).filter((note) => note.date === date).sort((left, right) => left.kind.localeCompare(right.kind));
+}
+
+export function noteKindFromText(text: string): NoteKind | undefined {
+  const value = text || '';
+  if (/比赛日|比赛成绩|马拉松|参赛/.test(value)) return '比赛';
+  // 「不加力量 / 仅做活动度」属于恢复安排，不能因为出现「力量」二字就归为力量
+  if (/不加力量|不做力量|取消力量|仅.{0,6}活动度|只做.{0,4}活动度/.test(value)) return '恢复';
+  if (/力量|器械|核心|提踵|深蹲|负重/.test(value)) return '力量';
+  if (/跑技|A-march|A-skip|动态|短加速|行进|摆腿/.test(value)) return '跑技';
+  if (/恢复|活动度|拉伸|放松|营养|睡眠|补水/.test(value)) return '恢复';
+  if (/学习|复盘|反思|总结/.test(value)) return '学习';
+  return undefined;
+}
 
 export function periodForDate(state: CoachState, date: string): TrainingPeriod | undefined {
   return state.periods?.find((period) => date >= period.from && date <= period.to);

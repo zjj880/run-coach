@@ -6,17 +6,28 @@ import { Button, Dialog, errorMessage, Field } from './AiTools';
 import { mergeImportedActivities, parseRecordsCsv, type ParsedRecords } from './importRecords';
 import { mapTrainingWorkbook, type PlannedRow } from './xlsxImport';
 import { autoClassifyDates } from './autoclassify';
-import { ensureCycleCovers, makeEntry, type Activity, type CoachState, type PlanEntry } from './training';
+import { ensureCycleCovers, makeEntry, type Activity, type CoachState, type PlanEntry, type TrainingNote } from './training';
 
 type ImportResult = {
   state: CoachState;
   added: number;
   duplicates: number;
   plansAdded: number;
+  notesAdded: number;
   skipped: number;
   errors: string[];
   source: string;
 };
+
+function mergeNotes(state: CoachState, notes: TrainingNote[]) {
+  const existing = state.notes ?? [];
+  const added: TrainingNote[] = [];
+  for (const note of notes) {
+    const duplicate = existing.some((item) => item.date === note.date && item.kind === note.kind && item.text === note.text);
+    if (!duplicate) added.push(note);
+  }
+  return { notes: [...existing, ...added], added };
+}
 
 function mergePlans(state: CoachState, plans: PlannedRow[]) {
   const next: PlanEntry[] = [...state.plan];
@@ -38,7 +49,7 @@ export function RecordImport({ state, onDone, onClose }: {
   onClose: () => void;
 }) {
   const [text, setText] = useState('');
-  const [preview, setPreview] = useState<{ activities: Activity[]; plans: PlannedRow[]; errors: string[]; skipped: number; source: string } | null>(null);
+  const [preview, setPreview] = useState<{ activities: Activity[]; plans: PlannedRow[]; notes: TrainingNote[]; errors: string[]; skipped: number; source: string } | null>(null);
   const [fileName, setFileName] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
@@ -81,11 +92,11 @@ export function RecordImport({ state, onDone, onClose }: {
       setFileName(loaded.name);
       if (loaded.kind === 'xlsx') {
         const mapped = mapTrainingWorkbook(loaded.bytes ?? new Uint8Array());
-        setPreview({ activities: mapped.activities, plans: mapped.plans, errors: mapped.errors,
+        setPreview({ activities: mapped.activities, plans: mapped.plans, notes: mapped.notes, errors: mapped.errors,
           skipped: mapped.skipped, source: 'XLSX · ' + (mapped.sheetName || '未识别工作表') });
       } else {
         const parsed: ParsedRecords = parseRecordsCsv(loaded.content ?? '');
-        setPreview({ activities: parsed.activities, plans: [], errors: parsed.errors, skipped: parsed.skipped, source: 'CSV' });
+        setPreview({ activities: parsed.activities, plans: [], notes: [], errors: parsed.errors, skipped: parsed.skipped, source: 'CSV' });
       }
     } catch (error) { setNotice(errorMessage(error)); }
     finally { setBusy(false); }
@@ -96,7 +107,7 @@ export function RecordImport({ state, onDone, onClose }: {
     const parsed = parseRecordsCsv(text);
     if (!parsed.activities.length && parsed.errors.length) { setNotice(parsed.errors[0]); return; }
     setFileName('');
-    setPreview({ activities: parsed.activities, plans: [], errors: parsed.errors, skipped: parsed.skipped, source: 'CSV（粘贴）' });
+    setPreview({ activities: parsed.activities, plans: [], notes: [], errors: parsed.errors, skipped: parsed.skipped, source: 'CSV（粘贴）' });
   }
 
   function commit() {
@@ -105,16 +116,18 @@ export function RecordImport({ state, onDone, onClose }: {
     try {
       const merged = mergeImportedActivities(state, preview.activities);
       const plansMerged = mergePlans(merged.state, preview.plans);
+      const notesMerged = mergeNotes({ ...merged.state, plan: plansMerged.plan }, preview.notes);
       const dates = [
         ...merged.added.map((activity) => activity.date),
         ...preview.plans.map((plan) => plan.date),
       ];
-      const classified = autoClassifyDates({ ...merged.state, plan: plansMerged.plan }, dates).state;
+      const classified = autoClassifyDates({ ...notesMerged.notes.length ? { ...merged.state, plan: plansMerged.plan, notes: notesMerged.notes } : { ...merged.state, plan: plansMerged.plan } }, dates).state;
       onDone({
         state: ensureCycleCovers(classified, dates),
         added: merged.added.length,
         duplicates: merged.duplicates,
         plansAdded: plansMerged.added,
+        notesAdded: notesMerged.added.length,
         skipped: preview.skipped,
         errors: preview.errors,
         source: preview.source,
@@ -138,7 +151,7 @@ export function RecordImport({ state, onDone, onClose }: {
       <View style={styles.buttons}><Button secondary label="解析预览" onPress={analyze} disabled={!text.trim()} /></View>
     </> : <>
       <Text style={styles.label}>解析结果 · {preview.source}</Text>
-      <Text style={styles.body}>{preview.activities.length} 条活动 · {preview.plans.length} 条计划
+      <Text style={styles.body}>{preview.activities.length} 条活动 · {preview.plans.length} 条计划 · {preview.notes.length} 条笔记
         {preview.skipped ? ' · ' + preview.skipped + ' 条缺时长' : ''}{preview.errors.length ? ' · ' + preview.errors.length + ' 条问题' : ''}</Text>
       <Text style={styles.small}>日期范围：{preview.activities.length ? preview.activities[0].date + ' ~ ' + preview.activities[preview.activities.length - 1].date : '—'}
         {'  '}总里程：{Math.round(totalKm * 10) / 10} 公里</Text>

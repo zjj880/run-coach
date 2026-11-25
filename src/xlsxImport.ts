@@ -1,5 +1,6 @@
 import { unzipSync } from 'fflate';
-import type { Activity, WorkoutType } from './training';
+import { noteKindFromText } from './training.ts';
+import type { Activity, TrainingNote, WorkoutType } from './training';
 import { averageHeartRate, cleanTitle, flattenText, minutesFromText, planTypeFromText } from './importRecords.ts';
 
 /** 最小 OOXML 读取：只用 fflate 解压 + 文本解析，不引入 SheetJS 之类的大依赖。
@@ -12,6 +13,7 @@ export type MappedWorkbook = {
   activities: Activity[];
   planned: PlannedRow[];
   plans: PlannedRow[];
+  notes: TrainingNote[];
   errors: string[];
   skipped: number;
 };
@@ -138,6 +140,17 @@ const dateValue = (raw: string): string | undefined => {
   return Number.isFinite(serial) ? serialToDate(serial) : undefined;
 };
 
+/** 把 Excel 时间序列号（0–1 表示一天内的时刻）格式化成 35:30 / 3:33。 */
+const formatTimeSerial = (raw: string): string => {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0 || value >= 1) return raw;
+  const seconds = Math.round(value * 86400);
+  if (seconds >= 3600) {
+    return Math.floor(seconds / 3600) + ':' + String(Math.floor(seconds % 3600 / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+  }
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+};
+
 const numeric = (raw: string): number | undefined => {
   const cleaned = raw.replace(/[^\d.\-]/g, '');
   if (!cleaned) return undefined;
@@ -156,7 +169,7 @@ export function mapTrainingWorkbook(bytes: Uint8Array): MappedWorkbook {
   let sheets: WorkbookSheet[];
   try { sheets = readWorkbook(bytes); }
   catch {
-    return { sheetName: '', activities: [], planned: [], plans: [], errors: ['无法读取这个 XLSX，请确认文件未加密且为 .xlsx 格式。'], skipped: 0 };
+    return { sheetName: '', activities: [], planned: [], plans: [], notes: [], errors: ['无法读取这个 XLSX，请确认文件未加密且为 .xlsx 格式。'], skipped: 0 };
   }
 
   const findHeader = (rows: SheetRows) => {
@@ -184,13 +197,14 @@ export function mapTrainingWorkbook(bytes: Uint8Array): MappedWorkbook {
   const chosen = candidates.sort((left, right) =>
     (right.sheet.name.includes('训练计划') ? 1 : 0) - (left.sheet.name.includes('训练计划') ? 1 : 0))[0];
   if (!chosen || !chosen.header) {
-    return { sheetName: '', activities: [], planned: [], plans: [], errors: ['没有找到含「日期 / 实际」列的表格，请确认工作表结构与训练课表模板一致。'], skipped: 0 };
+    return { sheetName: '', activities: [], planned: [], plans: [], notes: [], errors: ['没有找到含「日期 / 实际」列的表格，请确认工作表结构与训练课表模板一致。'], skipped: 0 };
   }
 
   const header = chosen.header;
   const pick = (row: string[], index: number) => (index >= 0 ? (row[index] ?? '') : '');
   const activities: Activity[] = [];
   const plans: PlannedRow[] = [];
+  const notes: TrainingNote[] = [];
   const errors: string[] = [];
   let skipped = 0;
 
@@ -213,6 +227,13 @@ export function mapTrainingWorkbook(bytes: Uint8Array): MappedWorkbook {
       }
     }
 
+    // 支持列（力量 / 跑技 / 活动度 / 恢复）单独记成训练笔记
+    if (support) {
+      const kind = noteKindFromText(support);
+      if (kind) {
+        notes.push({ id: 'xlsx-note-' + date + '-' + index, date, kind, text: flattenText(support).slice(0, 1200), source: 'xlsx' });
+      }
+    }
     if (!actualKm || actualKm <= 0) continue;
     const minutes = minutesFromText(timing + ' ' + splits);
     if (!minutes) skipped += 1;
@@ -229,6 +250,64 @@ export function mapTrainingWorkbook(bytes: Uint8Array): MappedWorkbook {
     });
   }
 
+  // 其它参考表：比赛日与目标、营养恢复、动作库，转成训练笔记
+  const byName = new Map(sheets.map((sheet) => [sheet.name, sheet]));
+  const fallbackDate = plans[0]?.date ?? activities[0]?.date;
+  let raceDate: string | undefined;
+
+  const basic = byName.get('基本信息与说明');
+  if (basic) {
+    const rows = basic.rows.map((row) => row.map((cell) => flattenText(cell)));
+    for (const row of rows) {
+      const label = normalizeHeader(row[0] ?? '');
+      if (label.includes('比赛日')) raceDate = dateValue(row[1] ?? '') ?? raceDate;
+    }
+    const target = rows.find((row) => normalizeHeader(row[0] ?? '').includes('目标用时'));
+    if (raceDate) {
+      let goal = '';
+      if (target) {
+        const values = target.slice(1).map((cell) => formatTimeSerial(cell)).filter((cell) => cell && !/^对应配速/.test(cell));
+        goal = values.join(' / ');
+      }
+      notes.push({ id: 'xlsx-note-race', date: raceDate, kind: '比赛', title: '比赛日',
+        text: ('比赛日目标：' + (goal || '见课表')).slice(0, 600), source: 'xlsx' });
+    }
+  }
+
+  const recovery = byName.get('恢复与比赛');
+  if (recovery) {
+    const lines = recovery.rows.map((row) => flattenText(row.filter(Boolean).join(' · '))).filter(Boolean);
+    const nutrition = lines.filter((line) => /蛋白质|碳水|补水|营养/.test(line)).slice(0, 8).join('\n');
+    const raceFlow = lines.filter((line) => /比赛|起跑|热身|补给/.test(line)).slice(0, 8).join('\n');
+    const dateForNote = raceDate ?? fallbackDate;
+    if (nutrition && dateForNote) notes.push({ id: 'xlsx-note-nutrition', date: dateForNote, kind: '恢复',
+      title: '营养与恢复参考', text: nutrition.slice(0, 1500), source: 'xlsx' });
+    if (raceFlow && dateForNote) notes.push({ id: 'xlsx-note-raceflow', date: dateForNote, kind: '比赛',
+      title: '比赛流程与补给', text: raceFlow.slice(0, 1500), source: 'xlsx' });
+  }
+
+  const library = byName.get('力量与跑技动作');
+  if (library && fallbackDate) {
+    const groups = new Map<string, string[]>();
+    for (const row of library.rows) {
+      const module = flattenText(row[0] ?? '');
+      const action = flattenText(row[1] ?? '');
+      if (!module || !action || module === '模块' || action === '动作') continue;
+      const key = /A\s*力量|(^|\s)A(?![a-z])/.test(module) ? '力量 A'
+        : /B\s*力量|(^|\s)B(?![a-z])/.test(module) ? '力量 B'
+          : /^H|跑技|动态|短加速/.test(module) ? '跑技 H'
+            : /^M|活动度/.test(module) ? '活动度 M' : module.slice(0, 20);
+      const line = action + (row[2] ? '（' + flattenText(row[2]) + '）' : '') + (row[3] ? '：' + flattenText(row[3]) : '');
+      const list = groups.get(key) ?? [];
+      list.push(line);
+      groups.set(key, list);
+    }
+    for (const [title, lines] of groups) {
+      const kind = title.includes('力量') ? '力量' : title.includes('跑技') ? '跑技' : '恢复';
+      notes.push({ id: 'xlsx-note-lib-' + title, date: fallbackDate, kind,
+        title: '动作库 · ' + title, text: lines.join('\n').slice(0, 1800), source: 'xlsx' });
+    }
+  }
   if (!activities.length && !plans.length) errors.push('表格里没有可导入的训练行（需要有实际公里或计划公里）。');
-  return { sheetName: chosen.sheet.name, activities, planned: plans, plans, errors, skipped };
+  return { sheetName: chosen.sheet.name, activities, planned: plans, plans, notes, errors, skipped };
 }
