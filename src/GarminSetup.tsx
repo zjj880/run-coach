@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { aiRequest, Button, Dialog, errorMessage, Field, isWindowsDesktop } from './AiTools';
-import { syncGarminDaily, syncGarminDetails, validateGarminKey, type GarminSnapshot, type GarminSync } from './garmin';
+import { syncGarminDaily, syncGarminDetails, syncGarminHistory, validateGarminKey, type GarminHistory, type GarminSnapshot, type GarminSync } from './garmin';
 
 const secretName = 'run-coach.garmin-cn.personal-key';
 const chinaKeyPage = 'https://connect.garmin.cn/app/settings/personalApiToken';
@@ -42,6 +42,16 @@ export async function pullGarminDetails(ids: string[], weather = true) {
   const key = await (await nativeStorage()).getItemAsync(secretName);
   if (!key) throw new Error('请先连接佳明。');
   return syncGarminDetails(key, ids, fetch, { weather });
+}
+
+export async function pullGarminHistory(from: string, to: string) {
+  if (Platform.OS === 'web') {
+    if (!desktopPreview()) throw new Error('请在电脑 App 或手机原生 App 中同步历史活动。');
+    return aiRequest<GarminHistory>('/garmin/history', 'POST', { from, to });
+  }
+  const key = await (await nativeStorage()).getItemAsync(secretName);
+  if (!key) throw new Error('请先连接佳明。');
+  return syncGarminHistory(key, from, to);
 }
 
 export function GarminSetup({ date, latest, onSync, onDisconnect, onClose }: {

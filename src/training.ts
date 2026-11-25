@@ -78,6 +78,17 @@ export function applyGarminSync(state: CoachState, sync: GarminSync): CoachState
   return { ...state, garmin, activities: [...stored.values()], skipped: state.skipped.filter((date) => !trainedDates.has(date)) };
 }
 
+export function mergeActivities(state: CoachState, incoming: Activity[]): CoachState {
+  const stored = new Map(state.activities.map((item) => [item.id, item]));
+  for (const next of incoming) {
+    const old = stored.get(next.id);
+    stored.set(next.id, old ? { ...next, role: old.role, parentId: old.parentId, roleSource: old.roleSource,
+      roleReason: old.roleReason, core: old.core ?? next.core, detail: old.detail ?? next.detail, fit: old.fit, feedback: old.feedback } : next);
+  }
+  const importedDates = new Set(incoming.map((item) => item.date));
+  return { ...state, activities: [...stored.values()], skipped: state.skipped.filter((date) => !importedDates.has(date)) };
+}
+
 export function localDate(date = new Date()) {
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }

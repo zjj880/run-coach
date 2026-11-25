@@ -10,12 +10,13 @@ import { CoachDialog } from './src/CoachDialog';
 import type { CoachDay } from './src/coach';
 import { canReviewTraining, trainingReviewInput, type SavedReview } from './src/evaluation';
 import { GarminSetup, pullGarmin, pullGarminDetails } from './src/GarminSetup';
-import type { GarminSync } from './src/garmin';
+import { HistorySync } from './src/HistorySync';
+import type { GarminHistory, GarminSync } from './src/garmin';
 import { ScheduleEditor } from './src/ScheduleEditor';
 import { emptySchedule, rangeLabel, scheduleForDay, type ScheduleBook } from './src/schedule';
 import {
   addDays, applyGarminSync, changePlan, classifyActivity, cycleContains, dateIsValid, dateLabel, defaultCheckIn, demoHealth,
-  commonSymptoms, emptyHealth, getAdvice, importDemo, importPlan, initialState, isDefaultDemoPlan, localDate, makeEntry, moreSymptoms, roles, sensations, weekStart,
+  commonSymptoms, emptyHealth, getAdvice, importDemo, importPlan, initialState, isDefaultDemoPlan, localDate, makeEntry, mergeActivities, moreSymptoms, roles, sensations, weekStart,
   visibleActivities, workoutLabel, workoutTypes, type Activity, type ActivityFeedback, type ChangeAction, type ChangeReason, type CheckIn, type CoachState, type ImportRow,
   type PlanEntry, type Role, type Sensation, type Symptom, type WorkoutType,
 } from './src/training';
@@ -37,7 +38,7 @@ type EditorSheet =
   | { type: 'workout'; date: string; entry?: PlanEntry }
   | { type: 'log'; date: string }
   | { type: 'classify'; activity: Activity; returnToReview?: string };
-type Sheet = EditorSheet | { type: 'aiSettings' } | { type: 'planImport' } | { type: 'review'; date: string } | { type: 'schedule'; date: string } | { type: 'garmin' } | { type: 'coach' }
+type Sheet = EditorSheet | { type: 'aiSettings' } | { type: 'planImport' } | { type: 'review'; date: string } | { type: 'schedule'; date: string } | { type: 'garmin' } | { type: 'coach' } | { type: 'history' }
   | { type: 'activityFeedback'; activity: Activity; returnToReview?: string };
 
 const tabIcons: Record<Tab, IconName> = { 今天: 'view-dashboard-outline', 课表: 'calendar-outline', 我的: 'account-circle-outline' };
@@ -208,6 +209,14 @@ function CoachApp() {
       const synced = applyGarminSync(current, data);
       return autoClassifyDates(synced, data.activities.map((item) => item.date)).state;
     });
+  }
+
+  function saveHistory(history: GarminHistory) {
+    const dates = history.activities.map((item) => item.date);
+    setState((current) => autoClassifyDates(mergeActivities(current, history.activities), dates).state);
+    setSheet(null);
+    const suffix = history.truncated ? '（达到单次上限，可再选更早的日期段继续同步）' : '';
+    setNotice('已导入 ' + history.activities.length + ' 条历史活动' + suffix + '，并按心率/配速自动归类。');
   }
 
   function disconnectGarmin() {
@@ -516,6 +525,7 @@ function CoachApp() {
           {garmin && <Text style={styles.small}>最近同步 · {garmin.date} {garminTime}</Text>}
           <View style={styles.actions}>
             <Action label={garmin ? '管理佳明连接' : '连接佳明'} disabled={syncing} onPress={() => open({ type: 'garmin' })} />
+              <Action label="同步历史活动" icon="history" secondary onPress={() => open({ type: 'history' })} />
             {garmin && <Action label={syncing ? '同步中…' : '立即同步佳明'} icon="sync" secondary disabled={syncing} onPress={startGarminSync} />}
           </View>
         </Card>
@@ -574,6 +584,7 @@ function CoachApp() {
       {sheet?.type === 'aiSettings' && <AiSettings onClose={closeSheet} />}
       {sheet?.type === 'coach' && <CoachDialog day={coaching} context={coachContext} onSave={saveCoaching} onClose={closeSheet} />}
       {sheet?.type === 'garmin' && <GarminSetup date={date} latest={garmin} onSync={saveGarmin} onDisconnect={disconnectGarmin} onClose={closeSheet} />}
+      {sheet?.type === 'history' && <HistorySync today={date} onDone={saveHistory} onClose={closeSheet} />}
       {sheet?.type === 'planImport' && <PlanImport startDate={weekStart(state.cycleStart)}
         existingPlan={state.plan.filter((entry) => entry.current)} hasDemo={state.plan.some(isDefaultDemoPlan)}
         onClose={closeSheet} onImport={saveImportedPlan} />}
@@ -585,7 +596,7 @@ function CoachApp() {
       {sheet?.type === 'activityFeedback' && <ActivityFeedbackDialog activity={sheet.activity}
         onClose={() => finishFeedback(sheet)} onSave={(feedback) => finishFeedback(sheet, feedback, true)} />}
       {sheet?.type === 'schedule' && <ScheduleEditor initialDay={sheet.date} book={book} onUpdate={saveSchedule} onClose={closeSheet} />}
-      {sheet && sheet.type !== 'aiSettings' && sheet.type !== 'planImport' && sheet.type !== 'review' && sheet.type !== 'schedule' && sheet.type !== 'garmin' && sheet.type !== 'coach' && sheet.type !== 'activityFeedback' &&
+      {sheet && sheet.type !== 'aiSettings' && sheet.type !== 'planImport' && sheet.type !== 'review' && sheet.type !== 'schedule' && sheet.type !== 'garmin' && sheet.type !== 'coach' && sheet.type !== 'activityFeedback' && sheet.type !== 'history' &&
         <Editor sheet={sheet} state={state} date={date} notice={notice} onSave={update}
           onClose={() => { if (sheet.type === 'classify' && sheet.returnToReview) open({ type: 'review', date: sheet.returnToReview }); else closeSheet(); }} />}
     </SafeAreaView>

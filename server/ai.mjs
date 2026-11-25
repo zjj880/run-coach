@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { dateIsValid, workoutTypes } from '../src/training.ts';
-import { syncGarminDaily, syncGarminDetails, validateGarminKey } from '../src/garmin.ts';
+import { syncGarminDaily, syncGarminDetails, syncGarminHistory, validateGarminKey } from '../src/garmin.ts';
 
 const origins = new Set(['http://localhost:8090', 'http://127.0.0.1:8090', 'http://localhost:8089', 'http://127.0.0.1:8089']);
 const bodyLimit = 9 * 1024 * 1024;
@@ -320,6 +320,19 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
           garminKey = key;
         }
         return send(200, snapshot);
+      }
+      if (route === 'POST /garmin/history') {
+        if (!garminKey) throw new ApiError(409, '请先在「我的 → 连接佳明」填写密钥。');
+        const data = await readJson(request);
+        const from = field(data, 'from');
+        const to = field(data, 'to');
+        if (!dateIsValid(from) || !dateIsValid(to)) throw new ApiError(400, '请输入有效的起止日期。');
+        const version = garminRevision;
+        let history;
+        try { history = await syncGarminHistory(garminKey, from, to, garminFetchImpl); }
+        catch (error) { throw new ApiError(502, error.message); }
+        if (version !== garminRevision) throw new ApiError(409, '佳明连接已更改，请重新同步。');
+        return send(200, history);
       }
       if (route === 'POST /garmin/details') {
         if (!garminKey) throw new ApiError(409, '请先在「我的 → 连接佳明」填写密钥。');

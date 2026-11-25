@@ -46,7 +46,7 @@ Get-ChildItem test\*.mjs | ForEach-Object { node $_.FullName; if ($LASTEXITCODE)
 | `src/evaluation.ts` | 训练评估输入构建（按角色汇总、主课关联、FIT 摘要裁剪）与 `canReviewTraining` 门禁 |
 | `src/schedule.ts` | 时间窗、忙碌区间、空档计算、当天可选训练时段 |
 | `src/calendarImport.ts` | ICS 解析（含 RRULE 展开、时区换算、上限 5 万次展开） |
-| `src/garmin.ts` | 佳明中国区适配：令牌交换、日指标、14 天活动、活动明细、FIT 下载 |
+| `src/garmin.ts` | 佳明中国区适配：令牌交换、日指标、14 天活动、活动明细、FIT 下载、**历史活动范围同步（分页）** |
 | `src/activityWeather.ts` | 活动天气估计：取整到约 1 公里的起点 + 整点时间向 Open-Meteo 查温湿度，进程内缓存，可在「我的」关闭 |
 | `src/fit.ts` | FIT 解析（fitsdk），抽圈、心率采样、趋势分段、图表降采样 |
 | `src/coach.ts` | AI 教练对话的类型定义（极薄） |

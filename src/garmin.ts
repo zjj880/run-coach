@@ -13,6 +13,7 @@ export type GarminSnapshot = {
   unavailable: string[];
 };
 export type GarminSync = GarminSnapshot & { activities: Activity[] };
+export type GarminHistory = { from: string; to: string; activities: Activity[]; pages: number; truncated: boolean };
 export type ActivityDetail = {
   maxHr?: number;
   runningCadenceSpm?: number;
@@ -247,6 +248,31 @@ export async function syncGarminDetails(input: string, ids: string[], fetcher: t
   }
   if (!reachable) throw new Error('佳明暂时无法读取活动明细和 FIT，请重试。');
   return details;
+}
+
+export async function syncGarminHistory(input: string, from: string, to: string, fetcher: typeof fetch = fetch): Promise<GarminHistory> {
+  const start = validateGarminDate(from);
+  const end = validateGarminDate(to);
+  if (start > end) throw new Error('起始日期不能晚于结束日期。');
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+  if (days > 366) throw new Error('一次最多同步 366 天，请分段时间导入。');
+  const { get } = await getGarminData(input, fetcher);
+  const pageSize = 100;
+  const maxPages = 20;
+  const stored = new Map<string, Activity>();
+  let pages = 0;
+  let truncated = false;
+  for (let page = 0; page < maxPages; page += 1) {
+    const rows = normalizeActivities(await get('/activitylist-service/activities/search/activities?start=' + page * pageSize +
+      '&limit=' + pageSize + '&startDate=' + from + '&endDate=' + to));
+    pages += 1;
+    if (!rows.length) break;
+    for (const row of rows) stored.set(row.id, row);
+    if (rows.length < pageSize) break;
+    if (page === maxPages - 1) truncated = true;
+  }
+  const activities = [...stored.values()].sort((left, right) => (left.date + left.time).localeCompare(right.date + right.time));
+  return { from, to, activities, pages, truncated };
 }
 
 export async function syncGarminDaily(input: string, day: string, fetcher: typeof fetch = fetch): Promise<GarminSync> {
