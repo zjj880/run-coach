@@ -10,9 +10,10 @@ const pace = (activity: Activity) => {
 const round1 = (value: number) => Math.round(value * 10) / 10;
 const monthLabel = (date: string) => Number(date.slice(5, 7)) + ' 月';
 
-export function RecordsView({ state, onEditPeriods, onClassify, onReview }: {
+export function RecordsView({ state, onEditPeriods, onImportRecords, onClassify, onReview }: {
   state: CoachState;
   onEditPeriods: () => void;
+  onImportRecords?: () => void;
   onClassify: (activity: Activity) => void;
   onReview: (date: string) => void;
 }) {
@@ -41,9 +42,14 @@ export function RecordsView({ state, onEditPeriods, onClassify, onReview }: {
           <Text style={styles.sub}>{shown.length} 条活动 · 共 {totalKm} 公里</Text>
           <Text accessibilityRole="header" style={styles.title}>记录</Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={onEditPeriods} style={styles.button}>
-          <Text style={styles.buttonText}>训练周期</Text>
-        </Pressable>
+        <View style={styles.headActions}>
+          {onImportRecords && <Pressable accessibilityRole="button" onPress={onImportRecords} style={styles.button}>
+            <Text style={styles.buttonText}>导入记录</Text>
+          </Pressable>}
+          <Pressable accessibilityRole="button" onPress={onEditPeriods} style={styles.button}>
+            <Text style={styles.buttonText}>训练周期</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.chips}>
@@ -116,6 +122,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 24, gap: 10 },
   heading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  headActions: { flexDirection: 'row', gap: 8 },
   sub: { color: '#256447', fontSize: 13, fontWeight: '700', marginBottom: 3 },
   title: { color: '#162f29', fontSize: 35, fontWeight: '800', letterSpacing: -1.1 },
   button: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#cadace', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
