@@ -25,22 +25,30 @@ const headerAliases: Record<string, keyof ImportRow> = {
   '训练内容': 'detail', '备注': 'detail', '分段': 'detail', 'detail': 'detail',
 };
 
-function splitCsvLine(line: string): string[] {
-  const cells: string[] = [];
+/** 把整段 CSV 拆成记录，正确处理引号、转义双引号与单元格内换行。 */
+function tokenizeCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let cells: string[] = [];
   let current = '';
   let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
+  const source = text.replace(/^\uFEFF/, '');
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
     if (quoted) {
-      if (char === '"' && line[index + 1] === '"') { current += '"'; index += 1; }
-      else if (char === '"') quoted = false;
-      else current += char;
+      if (char === '"') {
+        if (source[index + 1] === '"') { current += '"'; index += 1; }
+        else quoted = false;
+      } else if (char === '\r') {
+        // 单元格内换行保留为空格，避免破坏记录
+      } else current += char;
     } else if (char === '"') quoted = true;
-    else if (char === ',') { cells.push(current); current = ''; }
+    else if (char === ',' ) { cells.push(current); current = ''; }
+    else if (char === '\n') { cells.push(current); rows.push(cells); cells = []; current = ''; }
+    else if (char === '\r') { /* 跳过 */ }
     else current += char;
   }
-  cells.push(current);
-  return cells.map((cell) => cell.trim());
+  if (current !== '' || cells.length) { cells.push(current); rows.push(cells); }
+  return rows.map((row) => row.map((cell) => cell.trim())).filter((row) => row.some((cell) => cell !== ''));
 }
 
 const normalizeDate = (value: string): string | undefined => {
@@ -60,17 +68,17 @@ const toNumber = (value: string): number | undefined => {
 };
 
 export function parseRecordsCsv(text: string): ParsedRecords {
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim() !== '');
-  if (lines.length < 2) return { activities: [], errors: ['文件里没有数据行（第一行应为表头）。'], skipped: 0 };
-  const header = splitCsvLine(lines[0]).map((cell) => cell.replace(/\s+/g, '').toLowerCase());
+  const rows = tokenizeCsv(text);
+  if (rows.length < 2) return { activities: [], errors: ['文件里没有数据行（第一行应为表头）。'], skipped: 0 };
+  const header = rows[0].map((cell) => cell.replace(/\s+/g, '').toLowerCase());
   const mapping = header.map((cell) => headerAliases[cell] ?? headerAliases[cell.replace(/[（）()]/g, '')]);
   if (!mapping.includes('date')) return { activities: [], errors: ['找不到「日期」列，请确认第一行是表头：日期,公里,分钟,平均心率,标题,训练内容。'], skipped: 0 };
 
   const activities: Activity[] = [];
   const errors: string[] = [];
   let skipped = 0;
-  for (let index = 1; index < lines.length; index += 1) {
-    const cells = splitCsvLine(lines[index]);
+  for (let index = 1; index < rows.length; index += 1) {
+    const cells = rows[index];
     const row: ImportRow = { date: '' };
     mapping.forEach((field, position) => {
       if (!field) return;

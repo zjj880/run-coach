@@ -54,3 +54,13 @@ test('plan text maps to the closest workout type', () => {
   assert.equal(planTypeFromText('轻松跑，约5:20–6:00/km'), '轻松跑')
   assert.equal(planTypeFromText('今天完全休息'), '轻松跑')
 })
+
+test('quoted cells with embedded newlines stay in one record', () => {
+  const text = '日期,公里,分钟,平均心率,标题,训练内容\n2026-09-01,10.5,54,144,跑步,"19:29 跑步1.66km\n20:56 跑步8.84km"\n2026-09-02,12,66,140,跑步,轻松跑\n'
+  const parsed = parseRecordsCsv(text)
+  assert.equal(parsed.activities.length, 2)
+  assert.equal(parsed.errors.length, 0)
+  assert.match(parsed.activities[0].core, /19:29/)
+  assert.match(parsed.activities[0].core, /20:56/)
+  assert.equal(parsed.activities[1].date, '2026-09-02')
+})
