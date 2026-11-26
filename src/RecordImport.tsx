@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import * as DocumentPicker from 'expo-document-picker';
 import { File as NativeFile } from 'expo-file-system';
 import { useState } from 'react';
@@ -168,10 +169,10 @@ export function RecordImport({ state, onDone, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  body: { fontSize: 13, lineHeight: 20, color: '#566960' },
-  label: { color: '#162f29', fontSize: 14, fontWeight: '700' },
-  small: { color: '#566960', fontSize: 12, lineHeight: 18 },
-  row: { borderWidth: 1, borderColor: '#dfe7df', borderRadius: 10, padding: 9, gap: 2 },
+  body: { fontSize: 13, lineHeight: 20, color: brandTheme.muted },
+  label: { color: brandTheme.ink, fontSize: 14, fontWeight: '700' },
+  small: { color: brandTheme.muted, fontSize: 12, lineHeight: 18 },
+  row: { borderWidth: 1, borderColor: brandTheme.border, borderRadius: 10, padding: 9, gap: 2 },
   buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  notice: { backgroundColor: '#e6f1e7', color: '#162f29', fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
+  notice: { backgroundColor: brandTheme.tint, color: brandTheme.ink, fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
 });

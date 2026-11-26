@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { aiRequest, Button, Dialog, errorMessage, Field, isWindowsDesktop } from './AiTools';
@@ -117,8 +118,8 @@ export function GarminSetup({ date, latest, onSync, onDisconnect, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  body: { fontSize: 13, lineHeight: 20, color: '#566960' },
-  label: { fontSize: 14, color: '#162f29', fontWeight: '700' },
+  body: { fontSize: 13, lineHeight: 20, color: brandTheme.muted },
+  label: { fontSize: 14, color: brandTheme.ink, fontWeight: '700' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  message: { fontSize: 13, lineHeight: 20, color: '#162f29', backgroundColor: '#e6f1e7', borderRadius: 8, padding: 9 },
+  message: { fontSize: 13, lineHeight: 20, color: brandTheme.ink, backgroundColor: brandTheme.tint, borderRadius: 8, padding: 9 },
 });

@@ -19,7 +19,7 @@ if (!host || (host !== '127.0.0.1' && !interfaces.some(({ address }) => address 
 }
 
 const manifest = JSON.stringify({
-  name: '跑步教练 · 手机体验版', short_name: '跑步教练', lang: 'zh-CN', start_url: '/',
+  name: '交我跑 · 手机体验版', short_name: '交我跑', lang: 'zh-CN', start_url: '/',
   display: 'standalone', background_color: '#f4f6f2', theme_color: '#f4f6f2',
   icons: [{ src: '/preview-icon.png', sizes: '1024x1024', type: 'image/png' }],
 });
@@ -27,10 +27,10 @@ const meta = [
   '<link rel="manifest" href="/phone.webmanifest">',
   '<link rel="apple-touch-icon" href="/preview-icon.png">',
   '<meta name="apple-mobile-web-app-capable" content="yes">',
-  '<meta name="apple-mobile-web-app-title" content="跑步教练">',
+  '<meta name="apple-mobile-web-app-title" content="交我跑">',
 ].join('');
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css',
-  '.json': 'application/json', '.png': 'image/png', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.woff2': 'font/woff2' };
+  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.woff2': 'font/woff2' };
 
 await readFile(resolve(root, 'index.html')).catch(() => {
   console.error('请先运行 npm run phone:build 生成手机预览。');

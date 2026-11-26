@@ -12,7 +12,7 @@ const webFolder = fileURLToPath(new URL('../web/', import.meta.url));
 const keyPage = 'https://connect.garmin.cn/app/settings/personalApiToken';
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'";
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css',
-  '.ico': 'image/x-icon', '.png': 'image/png', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json' };
+  '.ico': 'image/x-icon', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json' };
 
 protocol.registerSchemesAsPrivileged([{ scheme, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 app.setAppUserModelId('RunCoach.Windows');
@@ -42,7 +42,7 @@ async function start() {
           'Cache-Control': 'no-store',
         } });
       } catch {
-        return Response.json({ error: '本机服务暂时无法连接，请重新打开跑步教练。' }, { status: 502 });
+        return Response.json({ error: '本机服务暂时无法连接，请重新打开交我跑。' }, { status: 502 });
       }
     }
     if (request.method !== 'GET') return new Response(null, { status: 405 });
@@ -59,8 +59,8 @@ async function start() {
 
   Menu.setApplicationMenu(null);
   window = new BrowserWindow({
-    title: '跑步教练', width: 1240, height: 900, minWidth: 700, minHeight: 540,
-    backgroundColor: '#f4f6f2', show: false, icon: resolve(webFolder, 'favicon.ico'),
+    title: '交我跑', width: 1240, height: 900, minWidth: 700, minHeight: 540,
+    backgroundColor: '#F7F1E8', show: false, icon: resolve(webFolder, 'favicon.ico'),
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, webviewTag: false },
   });
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
@@ -88,7 +88,7 @@ else {
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', () => server?.close());
   app.whenReady().then(start).catch(() => {
-    dialog.showErrorBox('跑步教练', '启动失败。请完整解压电脑版本，再打开 RunCoach.exe。');
+    dialog.showErrorBox('交我跑', '启动失败。请完整解压电脑版本，再打开 RunCoach.exe。');
     app.quit();
   });
 }

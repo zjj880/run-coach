@@ -29,7 +29,7 @@ mkdirSync(join(runtime, 'src'));
 for (const file of ['training.ts', 'garmin.ts', 'fit.ts', 'activityWeather.ts']) cpSync(join(project, 'src', file), join(runtime, 'src', file));
 for (const dependency of ['@garmin/fitsdk', 'fflate']) cpSync(join(project, 'node_modules', dependency), join(runtime, 'node_modules', dependency), { recursive: true });
 cpSync(web, join(runtime, 'web'), { recursive: true });
-writeFileSync(join(output, '使用说明.txt'), '\ufeff跑步教练 Windows x64 内测版 ' + version +
+writeFileSync(join(output, '使用说明.txt'), '\ufeff交我跑 Windows x64 内测版 ' + version +
   '\r\n完整解压后，双击 RunCoach.exe。运行文件与目录请放在一起。\r\n' +
   '佳明绑定：我的 → 连接佳明 → 填写中国区个人 API 密钥 → 连接并同步。\r\n' +
   '手机和电脑各自保存课表与打卡。分别绑定同一佳明账号，可各自读取手表数据。\r\n');

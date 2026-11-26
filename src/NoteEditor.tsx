@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Dialog, Field } from './AiTools';
@@ -54,12 +55,12 @@ export function NoteEditor({ note, today, onSave, onDelete, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  body: { fontSize: 13, lineHeight: 20, color: '#566960' },
-  label: { color: '#162f29', fontSize: 14, fontWeight: '700' },
+  body: { fontSize: 13, lineHeight: 20, color: brandTheme.muted },
+  label: { color: brandTheme.ink, fontSize: 14, fontWeight: '700' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderColor: '#dfe7df', borderRadius: 9, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: '#fff' },
-  chipActive: { backgroundColor: '#e6f1e7', borderColor: '#8cb49a' },
-  chipText: { color: '#162f29', fontSize: 13 },
-  chipTextActive: { color: '#256447', fontWeight: '800' },
-  notice: { backgroundColor: '#e6f1e7', color: '#162f29', fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
+  chip: { borderWidth: 1, borderColor: brandTheme.border, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: '#fff' },
+  chipActive: { backgroundColor: brandTheme.tint, borderColor: brandTheme.selectedBorder },
+  chipText: { color: brandTheme.ink, fontSize: 13 },
+  chipTextActive: { color: brandTheme.accent, fontWeight: '800' },
+  notice: { backgroundColor: brandTheme.tint, color: brandTheme.ink, fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
 });

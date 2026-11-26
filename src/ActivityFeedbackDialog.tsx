@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Dialog, Field } from './AiTools';
@@ -50,8 +51,8 @@ function Choice({ value, label, selected, onPress }: { value: string; label?: st
 
 const styles = StyleSheet.create({
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  choice: { paddingHorizontal: 10, paddingVertical: 8, minWidth: 35, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#d6e3d9' },
-  selected: { backgroundColor: '#e0efe3', borderColor: '#729b82' },
-  label: { color: '#162f29', fontSize: 14, fontWeight: '700' },
-  info: { color: '#566960', fontSize: 13, lineHeight: 19 },
+  choice: { paddingHorizontal: 10, paddingVertical: 8, minWidth: 35, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: brandTheme.controlBorder },
+  selected: { backgroundColor: brandTheme.tint, borderColor: brandTheme.selectedBorder },
+  label: { color: brandTheme.ink, fontSize: 14, fontWeight: '700' },
+  info: { color: brandTheme.muted, fontSize: 13, lineHeight: 19 },
 });

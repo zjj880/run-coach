@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Dialog, Field } from './AiTools';
@@ -66,16 +67,16 @@ export function PeriodEditor({ periods, today, onSave, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  body: { fontSize: 13, lineHeight: 20, color: '#566960' },
-  label: { color: '#162f29', fontSize: 14, fontWeight: '700' },
-  small: { color: '#566960', fontSize: 12, lineHeight: 18 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderWidth: 1, borderColor: '#dfe7df', borderRadius: 10, padding: 10 },
+  body: { fontSize: 13, lineHeight: 20, color: brandTheme.muted },
+  label: { color: brandTheme.ink, fontSize: 14, fontWeight: '700' },
+  small: { color: brandTheme.muted, fontSize: 12, lineHeight: 18 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderWidth: 1, borderColor: brandTheme.border, borderRadius: 10, padding: 10 },
   rowText: { flex: 1, gap: 2 },
   remove: { color: '#8c2929', fontSize: 13, fontWeight: '700' },
   presets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  preset: { borderWidth: 1, borderColor: '#dfe7df', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
-  presetActive: { backgroundColor: '#e6f1e7', borderColor: '#8cb49a' },
-  presetTextActive: { color: '#256447', fontWeight: '800' },
+  preset: { borderWidth: 1, borderColor: brandTheme.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  presetActive: { backgroundColor: brandTheme.tint, borderColor: brandTheme.selectedBorder },
+  presetTextActive: { color: brandTheme.accent, fontWeight: '800' },
   buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  notice: { backgroundColor: '#e6f1e7', color: '#162f29', fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
+  notice: { backgroundColor: brandTheme.tint, color: brandTheme.ink, fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
 });

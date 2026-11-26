@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { FitActivity, FitLap } from './fit';
@@ -144,27 +145,27 @@ export function FitReview({ fit, heartRateSuspect = false }: { fit: FitActivity;
 
 const styles = StyleSheet.create({
   group: { gap: 8, marginTop: 5 },
-  card: { gap: 7, padding: 10, borderWidth: 1, borderColor: '#dfe7df', borderRadius: 10, backgroundColor: '#fff' },
-  label: { color: '#162f29', fontSize: 14, fontWeight: '700' },
-  small: { color: '#566960', fontSize: 12, lineHeight: 18 },
-  axis: { color: '#566960', fontSize: 11, lineHeight: 15, fontVariant: ['tabular-nums'] },
+  card: { gap: 7, padding: 10, borderWidth: 1, borderColor: brandTheme.border, borderRadius: 10, backgroundColor: '#fff' },
+  label: { color: brandTheme.ink, fontSize: 14, fontWeight: '700' },
+  small: { color: brandTheme.muted, fontSize: 12, lineHeight: 18 },
+  axis: { color: brandTheme.muted, fontSize: 11, lineHeight: 15, fontVariant: ['tabular-nums'] },
   row: { flexDirection: 'row', gap: 7, alignItems: 'flex-start' },
   scale: { width: 30, height, alignItems: 'flex-end', justifyContent: 'space-between' },
   lapScroll: { flex: 1 },
   lapColumns: { minWidth: '100%', flexDirection: 'row' },
   lapColumn: { width: barWidth, alignItems: 'center' },
   barArea: { height, width: barWidth, justifyContent: 'flex-end', alignItems: 'center' },
-  bar: { width: 19, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: '#679a7b' },
-  barSelected: { backgroundColor: '#235b40' },
-  lapNumber: { color: '#566960', fontSize: 11, lineHeight: 20 },
-  lapNumberSelected: { color: '#235b40', fontWeight: '800' },
-  grid: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#e0e9e1' },
-  heartPlot: { height, flex: 1, borderRadius: 4, backgroundColor: '#f5f8f5', overflow: 'hidden' },
+  bar: { width: 19, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: brandTheme.muted },
+  barSelected: { backgroundColor: brandTheme.ink },
+  lapNumber: { color: brandTheme.muted, fontSize: 11, lineHeight: 20 },
+  lapNumberSelected: { color: brandTheme.ink, fontWeight: '800' },
+  grid: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: brandTheme.border },
+  heartPlot: { height, flex: 1, borderRadius: 4, backgroundColor: brandTheme.soft, overflow: 'hidden' },
   heartMark: { position: 'absolute', width: 3, height: 2, backgroundColor: '#ac5043', borderRadius: 2 },
   cursor: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: '#8d5b53' },
   dot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#843d33' },
   timeAxis: { flexDirection: 'row', justifyContent: 'space-between', marginLeft: 37 },
-  selection: { padding: 6, paddingHorizontal: 8, backgroundColor: '#edf4ed', borderRadius: 6 },
-  reading: { fontSize: 12, fontWeight: '700', lineHeight: 18, color: '#162f29' },
-  link: { color: '#256447', fontSize: 12, paddingVertical: 3, fontWeight: '700' },
+  selection: { padding: 6, paddingHorizontal: 8, backgroundColor: brandTheme.soft, borderRadius: 6 },
+  reading: { fontSize: 12, fontWeight: '700', lineHeight: 18, color: brandTheme.ink },
+  link: { color: brandTheme.accent, fontSize: 12, paddingVertical: 3, fontWeight: '700' },
 });

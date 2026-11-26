@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { Button, Dialog, errorMessage, Field } from './AiTools';
@@ -42,7 +43,7 @@ export function HistorySync({ today, onDone, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  body: { fontSize: 13, lineHeight: 20, color: '#566960' },
-  small: { color: '#566960', fontSize: 12, lineHeight: 18 },
-  notice: { backgroundColor: '#e6f1e7', color: '#162f29', fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
+  body: { fontSize: 13, lineHeight: 20, color: brandTheme.muted },
+  small: { color: brandTheme.muted, fontSize: 12, lineHeight: 18 },
+  notice: { backgroundColor: brandTheme.tint, color: brandTheme.ink, fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
 });

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "跑步教练",
+    "name": "交我跑",
     "slug": "run-coach",
     "version": "0.4.1",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "允许跑步教练读取你选择的日历，以计算可训练时段。"
+          "calendarPermission": "允许交我跑读取你选择的日历，以计算可训练时段。"
         }
       ],
       "expo-secure-store"
@@ -22,7 +22,7 @@
       "package": "com.runcoach.preview",
       "versionCode": 15,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFF7F2",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

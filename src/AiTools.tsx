@@ -1,3 +1,4 @@
+import { brandTheme, displayFont } from './brandTheme';
 import * as DocumentPicker from 'expo-document-picker';
 import { File as NativeFile } from 'expo-file-system';
 import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
@@ -80,7 +81,7 @@ export function Field({ label, value, onChangeText, placeholder, secure = false,
   return <View style={styles.field}>
     <Text style={styles.label}>{label}</Text>
     <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} placeholder={placeholder}
-      placeholderTextColor="#607168" autoCapitalize="none" autoCorrect={false} secureTextEntry={secure}
+      placeholderTextColor={brandTheme.hint} autoCapitalize="none" autoCorrect={false} secureTextEntry={secure}
       multiline={multiline} maxLength={maxLength} style={[styles.input, multiline && styles.multiline]} />
   </View>;
 }
@@ -450,33 +451,33 @@ export function PlanImport({ startDate, existingPlan, hasDemo, onClose, onImport
   </Dialog>;
 }
 
-const green = '#256447';
+const accent = brandTheme.accent;
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0d271f80', padding: 14 },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: brandTheme.scrim, padding: 14 },
   panel: { width: '100%', maxWidth: 610, maxHeight: '90%', backgroundColor: 'white', padding: 16, borderRadius: 17, gap: 10 },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  heading: { fontSize: 22, color: '#162f29', fontWeight: '800' },
-  label: { fontSize: 14, color: '#162f29', fontWeight: '700' },
-  body: { fontSize: 13, lineHeight: 20, color: '#566960' },
+  heading: { fontFamily: displayFont, fontSize: 23, color: brandTheme.ink },
+  label: { fontSize: 14, color: brandTheme.ink, fontWeight: '700' },
+  body: { fontSize: 13, lineHeight: 20, color: brandTheme.muted },
   scroll: { flexShrink: 1 },
   fields: { gap: 11, paddingBottom: 4 },
   field: { gap: 4 },
-  input: { borderColor: '#dfe7df', borderWidth: 1, borderRadius: 9, minHeight: 42, padding: 9, fontSize: 16, color: '#162f29' },
+  input: { borderColor: brandTheme.border, borderWidth: 1, borderRadius: 9, minHeight: 42, padding: 9, fontSize: 16, color: brandTheme.ink },
   multiline: { minHeight: 82, textAlignVertical: 'top' },
   buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  button: { minHeight: 42, borderRadius: 9, backgroundColor: green, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 },
-  secondary: { backgroundColor: 'white', borderColor: '#cadace', borderWidth: 1 },
+  button: { minHeight: 42, borderRadius: 9, backgroundColor: accent, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  secondary: { backgroundColor: 'white', borderColor: brandTheme.controlBorder, borderWidth: 1 },
   buttonText: { fontWeight: '700', fontSize: 14, color: 'white' },
-  secondaryText: { fontWeight: '700', fontSize: 13, color: green },
+  secondaryText: { fontWeight: '700', fontSize: 13, color: accent },
   disabled: { opacity: 0.45 },
-  chip: { paddingHorizontal: 9, paddingVertical: 7, borderWidth: 1, borderColor: '#dfe7df', borderRadius: 9 },
-  activeChip: { backgroundColor: '#e6f1e7', borderColor: '#8cb49a' },
-  row: { padding: 12, borderWidth: 1, borderColor: '#dfe7df', borderRadius: 11, gap: 8 },
-  notice: { backgroundColor: '#e6f1e7', color: '#162f29', fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
-  summary: { gap: 3, padding: 10, borderRadius: 10, backgroundColor: '#eef5ee' },
-  summaryLine: { color: '#162f29', fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  activityRow: { padding: 11, borderWidth: 1, borderColor: '#dfe7df', borderRadius: 11, gap: 5 },
-  bubble: { backgroundColor: '#eef5ee', borderRadius: 10, padding: 10, gap: 3 },
-  mine: { marginLeft: 28, backgroundColor: '#f3f4f0' },
-  small: { color: '#566960', fontSize: 12, lineHeight: 18 },
+  chip: { paddingHorizontal: 9, paddingVertical: 7, borderWidth: 1, borderColor: brandTheme.border, borderRadius: 9 },
+  activeChip: { backgroundColor: brandTheme.tint, borderColor: brandTheme.selectedBorder },
+  row: { padding: 12, borderWidth: 1, borderColor: brandTheme.border, borderRadius: 11, gap: 8 },
+  notice: { backgroundColor: brandTheme.tint, color: brandTheme.ink, fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
+  summary: { gap: 3, padding: 10, borderRadius: 10, backgroundColor: brandTheme.soft },
+  summaryLine: { color: brandTheme.ink, fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  activityRow: { padding: 11, borderWidth: 1, borderColor: brandTheme.border, borderRadius: 11, gap: 5 },
+  bubble: { backgroundColor: brandTheme.soft, borderRadius: 10, padding: 10, gap: 3 },
+  mine: { marginLeft: 28, backgroundColor: brandTheme.paper },
+  small: { color: brandTheme.muted, fontSize: 12, lineHeight: 18 },
 });

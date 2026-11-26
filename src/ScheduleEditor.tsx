@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import * as DocumentPicker from 'expo-document-picker';
 import { File as NativeFile } from 'expo-file-system';
 import { useState } from 'react';
@@ -195,8 +196,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   flex: { flex: 1 },
   buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  label: { color: '#162f29', fontSize: 15, fontWeight: '700' },
-  text: { color: '#566960', fontSize: 13, lineHeight: 20 },
-  choice: { borderWidth: 1, borderColor: '#cadace', borderRadius: 8, padding: 9 },
-  alert: { backgroundColor: '#e6f1e7', color: '#162f29', fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 9 },
+  label: { color: brandTheme.ink, fontSize: 15, fontWeight: '700' },
+  text: { color: brandTheme.muted, fontSize: 13, lineHeight: 20 },
+  choice: { borderWidth: 1, borderColor: brandTheme.controlBorder, borderRadius: 8, padding: 9 },
+  alert: { backgroundColor: brandTheme.tint, color: brandTheme.ink, fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 9 },
 });

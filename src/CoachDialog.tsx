@@ -1,3 +1,4 @@
+import { brandTheme } from './brandTheme';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { aiRequest, Button, Dialog, errorMessage, Field } from './AiTools';
@@ -57,9 +58,9 @@ export function CoachDialog({ day = empty, context, onSave, onClose }: {
 }
 
 const styles = StyleSheet.create({
-  bubble: { backgroundColor: '#eef5ee', borderRadius: 10, padding: 10, gap: 4 },
-  mine: { marginLeft: 28, backgroundColor: '#f3f4f0' },
-  body: { color: '#354d40', fontSize: 14, lineHeight: 21 },
-  label: { color: '#162f29', fontWeight: '700', fontSize: 14 },
+  bubble: { backgroundColor: brandTheme.soft, borderRadius: 10, padding: 10, gap: 4 },
+  mine: { marginLeft: 28, backgroundColor: brandTheme.paper },
+  body: { color: brandTheme.bodyInk, fontSize: 14, lineHeight: 21 },
+  label: { color: brandTheme.ink, fontWeight: '700', fontSize: 14 },
   error: { color: '#8c2929', fontSize: 14 },
 });

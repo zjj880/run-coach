@@ -1,12 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { AppState, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AiSettings, errorMessage, PlanImport, requestMoodReply, TrainingReviewDialog } from './src/AiTools';
 import { ActivityFeedbackDialog } from './src/ActivityFeedbackDialog';
 import { CoachDialog } from './src/CoachDialog';
+import { brandTheme, displayFont } from './src/brandTheme';
 import type { CoachDay } from './src/coach';
 import { canReviewTraining, trainingReviewInput, type SavedReview } from './src/evaluation';
 import { GarminSetup, pullGarmin, pullGarminDetails } from './src/GarminSetup';
@@ -26,12 +28,7 @@ import {
 } from './src/training';
 import { autoClassifyDates, autoClassifyDay, pendingDates } from './src/autoclassify';
 
-const ink = '#162f29';
-const muted = '#566960';
-const green = '#256447';
-const paper = '#f4f6f2';
-const border = '#dfe7df';
-const mint = '#e6f1e7';
+const { accent, border, ink, muted, paper, tint } = brandTheme;
 const key = 'run-coach/v1';
 const tabs = ['今天', '课表', '记录', '我的'] as const;
 type Tab = (typeof tabs)[number];
@@ -50,10 +47,15 @@ const changeActions: ChangeAction[] = ['缩短', '降强度', '换课', '取消'
 const changeReasons: ChangeReason[] = ['日程冲突', '疲劳', '身体不适', '其他'];
 
 export default function App() {
-  return <SafeAreaProvider><CoachApp /></SafeAreaProvider>;
+  const [fontReady, fontError] = useFonts({ JiaowopaoSong: require('./assets/JiaowopaoSong.ttf') });
+  return (
+    <SafeAreaProvider>
+      {fontReady || fontError ? <CoachApp /> : <View style={styles.shell} />}
+    </SafeAreaProvider>
+  );
 }
 
-function Icon({ name, color = green, size = 20 }: { name: IconName; color?: string; size?: number }) {
+function Icon({ name, color = accent, size = 20 }: { name: IconName; color?: string; size?: number }) {
   return <MaterialCommunityIcons name={name} color={color} size={size} />;
 }
 
@@ -63,7 +65,7 @@ function Action({ label, onPress, secondary = false, icon, disabled = false }: {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress}
       style={({ pressed }) => [styles.action, secondary && styles.actionSecondary, (pressed || disabled) && styles.dim]}>
-      {icon && <Icon name={icon} color={secondary ? green : 'white'} size={18} />}
+      {icon && <Icon name={icon} color={secondary ? accent : 'white'} size={18} />}
       <Text style={[styles.actionLabel, secondary && styles.secondaryLabel]}>{label}</Text>
     </Pressable>
   );
@@ -90,7 +92,7 @@ function Input({ label, value, onChangeText, placeholder, numeric = false, multi
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} placeholder={placeholder}
-        placeholderTextColor="#62756a" autoCorrect={false} keyboardType={numeric ? 'number-pad' : 'default'}
+        placeholderTextColor={brandTheme.hint} autoCorrect={false} keyboardType={numeric ? 'number-pad' : 'default'}
         multiline={multiline} maxLength={maxLength} style={[styles.input, multiline && styles.multiline]} />
     </View>
   );
@@ -102,7 +104,8 @@ function Card({ children }: { children: ReactNode }) {
 
 function CoachApp() {
   const date = localDate();
-  const wide = useWindowDimensions().width >= 820;
+  const { width } = useWindowDimensions();
+  const wide = width >= 820;
   const [state, setState] = useState(() => initialState(date));
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<Tab>('今天');
@@ -370,7 +373,7 @@ function CoachApp() {
               </Pressable>
             </Card>
             <View style={styles.hero}>
-              <View style={styles.heroTop}><Icon name="run-fast" color="#bfe9c6" size={23} />
+              <View style={styles.heroTop}><Icon name="run-fast" color={brandTheme.onWashAccent} size={23} />
                 <Text style={styles.heroLabel}>{confirmed ? '已确认方案' : '初步建议 · ' + advice.label}</Text></View>
               <Text style={styles.heroTitle}>{confirmed?.title ?? advice.title}</Text>
               <Text style={styles.heroReason}>{confirmed?.training ?? advice.reason}</Text>
@@ -601,17 +604,26 @@ function CoachApp() {
       <StatusBar style="dark" />
       <View style={styles.top}>
         <View style={styles.topInner}>
-          <View style={styles.brand}><View style={styles.mark}><Icon name="run-fast" color="white" size={22} /></View><Text style={styles.brandText}>跑步教练</Text></View>
+          <View style={styles.brand}>
+            <Image source={require('./assets/icon.png')} style={styles.mark} accessible={false} />
+            <Text style={styles.brandText}>交我跑</Text>
+          </View>
           {wide && <Navigation current={tab} onSelect={selectTab} />}
         </View>
       </View>
-      <ScrollView key={tab} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>
-          {storageError && <Text accessibilityRole="alert" style={styles.notice}>本地存储不可用，本次修改可能无法保留。</Text>}
-          {notice !== '' && !sheet && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
-          {ready ? tab === '今天' ? todayContent() : tab === '课表' ? planContent() : tab === '记录' ? recordsContent() : profileContent() : <Text style={styles.body}>正在加载课表…</Text>}
+      <View style={styles.viewport}>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Image source={require('./assets/campus-print.jpg')} accessible={false} resizeMode="cover"
+            style={[styles.campusPrint, !wide && styles.campusPrintNarrow]} />
         </View>
-      </ScrollView>
+        <ScrollView key={tab} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={[styles.content, width >= 1120 && tab === '今天' && styles.contentWithArtwork]}>
+            {storageError && <Text accessibilityRole="alert" style={styles.notice}>本地存储不可用，本次修改可能无法保留。</Text>}
+            {notice !== '' && !sheet && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
+            {ready ? tab === '今天' ? todayContent() : tab === '课表' ? planContent() : tab === '记录' ? recordsContent() : profileContent() : <Text style={styles.body}>正在加载课表…</Text>}
+          </View>
+        </ScrollView>
+      </View>
       {!wide && <View style={styles.bottom}><Navigation current={tab} onSelect={selectTab} mobile /></View>}
       {sheet?.type === 'aiSettings' && <AiSettings onClose={closeSheet} />}
       {sheet?.type === 'coach' && <CoachDialog day={coaching} context={coachContext} onSave={saveCoaching} onClose={closeSheet} />}
@@ -648,7 +660,7 @@ function Navigation({ current, onSelect, mobile = false }: { current: Tab; onSel
     <View accessibilityRole="tablist" style={[styles.nav, mobile && styles.mobileNav]}>
       {tabs.map((tab) => <Pressable key={tab} accessibilityRole="tab" accessibilityLabel={tab} accessibilityState={{ selected: current === tab }}
         onPress={() => onSelect(tab)} style={[styles.navItem, mobile && styles.navMobileItem, current === tab && styles.navActive]}>
-        <Icon name={tabIcons[tab]} size={19} color={current === tab ? green : muted} />
+        <Icon name={tabIcons[tab]} size={19} color={current === tab ? accent : muted} />
         <Text style={[styles.navLabel, current === tab && styles.activeText]}>{tab}</Text>
       </Pressable>)}
     </View>
@@ -840,48 +852,52 @@ function Editor({ sheet, state, date, notice, onSave, onClose }: {
 
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: paper },
-  top: { backgroundColor: '#fff', borderBottomWidth: 1, borderColor: border },
+  top: { backgroundColor: '#FFFCF7', borderBottomWidth: 1, borderColor: border },
   topInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 20, paddingVertical: 11, gap: 10 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  mark: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: green, borderRadius: 10 },
-  brandText: { fontSize: 17, fontWeight: '800', color: ink },
+  mark: { width: 36, height: 36, borderRadius: 10 },
+  brandText: { fontFamily: displayFont, fontSize: 20, color: ink, letterSpacing: 1.2 },
+  viewport: { flex: 1, overflow: 'hidden' },
+  campusPrint: { position: 'absolute', right: 0, top: 0, width: '100%', height: '100%', opacity: 0.72 },
+  campusPrintNarrow: { width: '165%', opacity: 0.44 },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   content: { width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 22, gap: 12 },
-  pageHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
-  date: { color: green, fontSize: 13, fontWeight: '700', marginBottom: 3 },
-  heading: { color: ink, fontSize: 35, fontWeight: '800', letterSpacing: -1.1 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: mint, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7 },
-  pillText: { fontSize: 12, fontWeight: '700', color: green },
+  contentWithArtwork: { paddingRight: 292 },
+  pageHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', minHeight: 74, gap: 8 },
+  date: { color: accent, fontSize: 13, fontWeight: '700', marginBottom: 3 },
+  heading: { fontFamily: displayFont, color: ink, fontSize: 36, letterSpacing: 1.5 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: tint, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7 },
+  pillText: { fontSize: 12, fontWeight: '700', color: accent },
   pageGrid: { gap: 10 },
   pageGridWide: { flexDirection: 'row', alignItems: 'flex-start' },
   column: { gap: 10, minWidth: 0 },
   mainColumn: { flex: 1.15 },
   sideColumn: { flex: 1 },
-  hero: { backgroundColor: '#183b2d', borderRadius: 20, padding: 19, gap: 8 },
+  hero: { backgroundColor: brandTheme.wash, borderRadius: 15, padding: 19, gap: 8 },
   heroTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heroLabel: { color: '#bfe9c6', fontSize: 13, fontWeight: '700' },
-  heroTitle: { color: '#fff', fontWeight: '800', fontSize: 27, lineHeight: 34 },
-  heroReason: { color: '#e0eee3', fontSize: 15, lineHeight: 23 },
-  heroDivider: { height: 1, backgroundColor: '#48725d', marginVertical: 3 },
-  heroPlan: { color: '#e0eee3', fontSize: 13, fontWeight: '600', lineHeight: 20 },
+  heroLabel: { color: brandTheme.onWashAccent, fontSize: 13, fontWeight: '700' },
+  heroTitle: { fontFamily: displayFont, color: '#FFFCF7', fontSize: 27, lineHeight: 36 },
+  heroReason: { color: brandTheme.onWash, fontSize: 15, lineHeight: 23 },
+  heroDivider: { height: 1, backgroundColor: brandTheme.washDivider, marginVertical: 3 },
+  heroPlan: { color: brandTheme.onWash, fontSize: 13, fontWeight: '600', lineHeight: 20 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  action: { minHeight: 43, borderRadius: 10, backgroundColor: green, minWidth: 72, paddingHorizontal: 13, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  actionSecondary: { borderColor: '#cadace', borderWidth: 1, backgroundColor: '#fff' },
+  action: { minHeight: 43, borderRadius: 10, backgroundColor: accent, minWidth: 72, paddingHorizontal: 13, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  actionSecondary: { borderColor: brandTheme.controlBorder, borderWidth: 1, backgroundColor: '#fff' },
   actionLabel: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  secondaryLabel: { color: green },
+  secondaryLabel: { color: accent },
   dim: { opacity: 0.48 },
-  card: { padding: 14, borderRadius: 17, borderWidth: 1, borderColor: border, backgroundColor: '#fff', gap: 9 },
-  cardTitle: { color: ink, fontSize: 16, fontWeight: '800' },
+  card: { padding: 14, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: 'rgba(255,252,247,0.95)', gap: 9 },
+  cardTitle: { fontFamily: displayFont, color: ink, fontSize: 17 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
   metricGrid: { flexDirection: 'row', gap: 6 },
-  metric: { flex: 1, paddingVertical: 10, paddingHorizontal: 7, gap: 4, backgroundColor: '#eff5ef', borderRadius: 10 },
+  metric: { flex: 1, paddingVertical: 10, paddingHorizontal: 7, gap: 4, backgroundColor: brandTheme.soft, borderRadius: 10 },
   metricValue: { color: ink, fontWeight: '800', fontSize: 15 },
   small: { color: muted, fontSize: 12, lineHeight: 18 },
   body: { color: muted, fontSize: 14, lineHeight: 21 },
   label: { color: ink, fontSize: 14, fontWeight: '700' },
   textButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4 },
-  link: { color: green, fontWeight: '700', fontSize: 13, paddingVertical: 3 },
+  link: { color: accent, fontWeight: '700', fontSize: 13, paddingVertical: 3 },
   tip: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
   tipText: { flex: 1, gap: 3 },
   rule: { height: 1, backgroundColor: border },
@@ -889,32 +905,32 @@ const styles = StyleSheet.create({
   mobileNav: { justifyContent: 'space-between', paddingHorizontal: 15 },
   navItem: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, paddingHorizontal: 15, borderRadius: 10, minHeight: 44 },
   navMobileItem: { flex: 1 },
-  navActive: { backgroundColor: mint },
+  navActive: { backgroundColor: tint },
   navLabel: { color: muted, fontSize: 14, fontWeight: '700' },
-  bottom: { backgroundColor: '#fff', borderTopWidth: 1, borderColor: border, paddingVertical: 6 },
+  bottom: { backgroundColor: '#FFFCF7', borderTopWidth: 1, borderColor: border, paddingVertical: 6 },
   weekCenter: { alignItems: 'center' },
   splitRow: { flexDirection: 'row', gap: 8 },
   tableHeader: { paddingVertical: 9, borderTopWidth: 1, borderColor: border },
   planLabel: { flex: 1, color: muted, fontSize: 13, fontWeight: '700' },
   cell: { flex: 1, minWidth: 0, gap: 6 },
   day: { borderTopWidth: 1, borderColor: border, paddingTop: 10, gap: 8 },
-  currentDay: { borderColor: '#82a88f' },
+  currentDay: { borderColor: brandTheme.selectedBorder },
   planItem: { gap: 3, paddingBottom: 6 },
-  activity: { padding: 7, gap: 2, backgroundColor: '#f0f5f0', borderRadius: 8 },
+  activity: { padding: 7, gap: 2, backgroundColor: brandTheme.soft, borderRadius: 8 },
   activityName: { color: ink, fontSize: 14, fontWeight: '700', flexShrink: 1 },
-  role: { color: green, fontSize: 12, fontWeight: '700' },
-  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0d271f80', padding: 14 },
+  role: { color: accent, fontSize: 12, fontWeight: '700' },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: brandTheme.scrim, padding: 14 },
   modal: { width: '100%', maxWidth: 520, maxHeight: '90%', borderRadius: 17, backgroundColor: '#fff', padding: 16, gap: 11 },
-  modalHeading: { color: ink, fontWeight: '800', fontSize: 22 },
+  modalHeading: { fontFamily: displayFont, color: ink, fontSize: 23 },
   editorScroll: { flexShrink: 1 },
   editorFields: { gap: 9, paddingBottom: 3 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   option: { borderColor: border, borderWidth: 1, backgroundColor: '#fff', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 9 },
-  activeOption: { backgroundColor: mint, borderColor: '#8cb49a' },
+  activeOption: { backgroundColor: tint, borderColor: brandTheme.selectedBorder },
   optionText: { color: ink, fontSize: 14 },
-  activeText: { color: green, fontWeight: '800' },
+  activeText: { color: accent, fontWeight: '800' },
   field: { gap: 4 },
   input: { borderColor: border, borderWidth: 1, borderRadius: 8, minHeight: 41, paddingHorizontal: 9, paddingVertical: 7, color: ink, fontSize: 16 },
   multiline: { minHeight: 74, textAlignVertical: 'top' },
-  notice: { backgroundColor: mint, color: ink, borderRadius: 8, padding: 10, fontSize: 13, lineHeight: 19 },
+  notice: { backgroundColor: tint, color: ink, borderRadius: 8, padding: 10, fontSize: 13, lineHeight: 19 },
 });

@@ -1,3 +1,4 @@
+import { brandTheme, displayFont } from './brandTheme';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { dateLabel, periodTotals, visibleActivities, type Activity, type CoachState, type TrainingNote } from './training';
@@ -144,7 +145,7 @@ export function RecordsView({ state, onEditPeriods, onImportRecords, onClassify,
             {group.items.map((note) => <Pressable key={note.id} accessibilityRole="button" onPress={() => onEditNote?.(note)} style={styles.note}>
               <View style={styles.rowBetween}>
                 <View style={styles.noteHead}>
-                  <Text style={[styles.kind, { color: kindColor[note.kind] ?? '#256447' }]}>{note.kind}</Text>
+                  <Text style={[styles.kind, { color: kindColor[note.kind] ?? brandTheme.accent }]}>{note.kind}</Text>
                   <Text style={styles.activityTitle}>{note.title ?? dateLabel(note.date)}</Text>
                 </View>
                 <Text style={styles.small}>{note.date.slice(5)}</Text>
@@ -170,37 +171,37 @@ function ModeChip({ label, active, onPress }: { label: string; active: boolean; 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 24, gap: 10 },
-  heading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  heading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', minHeight: 74 },
   headActions: { flexDirection: 'row', gap: 8 },
-  sub: { color: '#256447', fontSize: 13, fontWeight: '700', marginBottom: 3 },
-  title: { color: '#162f29', fontSize: 35, fontWeight: '800', letterSpacing: -1.1 },
-  button: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#cadace', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
-  buttonText: { color: '#256447', fontSize: 14, fontWeight: '700' },
+  sub: { color: brandTheme.accent, fontSize: 13, fontWeight: '700', marginBottom: 3 },
+  title: { fontFamily: displayFont, color: brandTheme.ink, fontSize: 36, letterSpacing: 1.5 },
+  button: { backgroundColor: '#fff', borderWidth: 1, borderColor: brandTheme.controlBorder, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  buttonText: { color: brandTheme.accent, fontSize: 14, fontWeight: '700' },
   modes: { flexDirection: 'row', gap: 6 },
-  mode: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: '#dfe7df', backgroundColor: '#fff' },
-  modeActive: { backgroundColor: '#256447', borderColor: '#256447' },
-  modeText: { color: '#162f29', fontSize: 14, fontWeight: '700' },
+  mode: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: brandTheme.border, backgroundColor: '#fff' },
+  modeActive: { backgroundColor: brandTheme.accent, borderColor: brandTheme.accent },
+  modeText: { color: brandTheme.ink, fontSize: 14, fontWeight: '700' },
   modeTextActive: { color: '#fff' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderColor: '#dfe7df', borderRadius: 9, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: '#fff' },
-  chipActive: { backgroundColor: '#e6f1e7', borderColor: '#8cb49a' },
-  chipText: { color: '#162f29', fontSize: 13 },
-  chipTextActive: { color: '#256447', fontWeight: '800' },
-  periodCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7df', borderRadius: 14, padding: 13, gap: 4 },
-  periodName: { color: '#162f29', fontSize: 15, fontWeight: '800' },
+  chip: { borderWidth: 1, borderColor: brandTheme.border, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: '#fff' },
+  chipActive: { backgroundColor: brandTheme.tint, borderColor: brandTheme.selectedBorder },
+  chipText: { color: brandTheme.ink, fontSize: 13 },
+  chipTextActive: { color: brandTheme.accent, fontWeight: '800' },
+  periodCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: brandTheme.border, borderRadius: 14, padding: 13, gap: 4 },
+  periodName: { color: brandTheme.ink, fontSize: 15, fontWeight: '800' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   group: { gap: 6 },
-  groupLabel: { color: '#566960', fontSize: 13, fontWeight: '800', marginTop: 6 },
-  activity: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7df', borderRadius: 12, padding: 12, gap: 3 },
-  activityTitle: { color: '#162f29', fontSize: 15, fontWeight: '700', flexShrink: 1 },
-  metrics: { color: '#354d40', fontSize: 13, lineHeight: 19 },
-  small: { color: '#566960', fontSize: 12, lineHeight: 18 },
+  groupLabel: { color: brandTheme.muted, fontSize: 13, fontWeight: '800', marginTop: 6 },
+  activity: { backgroundColor: '#fff', borderWidth: 1, borderColor: brandTheme.border, borderRadius: 12, padding: 12, gap: 3 },
+  activityTitle: { color: brandTheme.ink, fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  metrics: { color: brandTheme.bodyInk, fontSize: 13, lineHeight: 19 },
+  small: { color: brandTheme.muted, fontSize: 12, lineHeight: 18 },
   actions: { flexDirection: 'row', gap: 14, marginTop: 3, alignItems: 'center' },
-  link: { color: '#256447', fontSize: 13, fontWeight: '700', paddingVertical: 2 },
-  empty: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7df', borderRadius: 14, padding: 16, gap: 5 },
-  emptyTitle: { color: '#162f29', fontSize: 15, fontWeight: '800' },
-  note: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dfe7df', borderRadius: 12, padding: 12, gap: 4 },
+  link: { color: brandTheme.accent, fontSize: 13, fontWeight: '700', paddingVertical: 2 },
+  empty: { backgroundColor: '#fff', borderWidth: 1, borderColor: brandTheme.border, borderRadius: 14, padding: 16, gap: 5 },
+  emptyTitle: { color: brandTheme.ink, fontSize: 15, fontWeight: '800' },
+  note: { backgroundColor: '#fff', borderWidth: 1, borderColor: brandTheme.border, borderRadius: 12, padding: 12, gap: 4 },
   noteHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
   kind: { fontSize: 12, fontWeight: '800' },
-  noteText: { color: '#354d40', fontSize: 13, lineHeight: 19 },
+  noteText: { color: brandTheme.bodyInk, fontSize: 13, lineHeight: 19 },
 });
