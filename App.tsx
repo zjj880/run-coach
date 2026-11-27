@@ -3,7 +3,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
-import { AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { AppState, KeyboardAvoidingView, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AiSettings, errorMessage, PlanImport, requestMoodReply, TrainingReviewDialog } from './src/AiTools';
 import { ActivityFeedbackDialog } from './src/ActivityFeedbackDialog';
@@ -762,7 +762,7 @@ function Editor({ sheet, state, date, notice, onSave, onClose }: {
   const needsParent = activityRole === '热身' || activityRole === '冷身';
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.modal}>
           <View style={styles.rowBetween}>
             <Text accessibilityRole="header" style={styles.modalHeading}>{title}</Text>
@@ -845,7 +845,7 @@ function Editor({ sheet, state, date, notice, onSave, onClose }: {
           </ScrollView>
           <Action label={sheet.type === 'checkin' ? '保存并更新建议' : '确认保存'} disabled={replyBusy} onPress={submit} />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: brandTheme.scrim, padding: 14 },
   modal: { width: '100%', maxWidth: 520, maxHeight: '90%', borderRadius: 17, backgroundColor: '#fff', padding: 16, gap: 11 },
   modalHeading: { fontFamily: displayFont, color: ink, fontSize: 23 },
-  editorScroll: { flexShrink: 1 },
+  editorScroll: { flexShrink: 1, flexGrow: 0 },
   editorFields: { gap: 9, paddingBottom: 3 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   option: { borderColor: border, borderWidth: 1, backgroundColor: '#fff', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 9 },

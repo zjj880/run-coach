@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { allowedExternalUrls, aiProviders, garminKeyPage, matchProvider, providerById } from '../src/providers.ts'
+import { allowedExternalUrls, aiProviders, garminKeyPage, matchModel, matchProvider, providerById } from '../src/providers.ts'
 import { parseEndpoint } from '../src/aiCore.ts'
 
 test('every provider preset is usable as-is', () => {
@@ -23,7 +23,7 @@ test('DeepSeek preset points at the official endpoint and cheap default model', 
   assert.equal(deepseek.endpoint, 'https://api.deepseek.com/v1')
   assert.equal(deepseek.model, 'deepseek-chat')
   assert.equal(deepseek.keyPage, 'https://platform.deepseek.com/api_keys')
-  assert.match(deepseek.note ?? '', /deepseek-reasoner/)
+  assert.equal(deepseek.models.some((option) => option.id === 'deepseek-reasoner'), true)
 })
 
 test('saved endpoints map back to the right provider chip', () => {
@@ -41,4 +41,20 @@ test('desktop external allowlist covers every key page', () => {
     assert.equal(allowedExternalUrls.includes(provider.keyPage), true)
   }
   assert.equal(allowedExternalUrls.length, 4)
+})
+
+test('providers expose switchable models and the default is listed first', () => {
+  const deepseek = providerById('deepseek')
+  assert.ok(deepseek.models.length >= 3)
+  assert.equal(deepseek.models[0].id, deepseek.model)
+  for (const option of deepseek.models) {
+    assert.ok(option.label && option.note)
+  }
+  const ids = deepseek.models.map((option) => option.id)
+  for (const expected of ['deepseek-chat', 'deepseek-reasoner', 'deepseek-v4-flash', 'deepseek-v4-pro']) {
+    assert.equal(ids.includes(expected), true)
+  }
+  assert.equal(matchModel(deepseek, 'deepseek-reasoner').note.includes('推理'), true)
+  assert.equal(matchModel(deepseek, 'not-a-model'), undefined)
+  assert.equal(matchModel(providerById('openai'), 'gpt-4o').id, 'gpt-4o')
 })

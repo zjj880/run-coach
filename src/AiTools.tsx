@@ -2,7 +2,7 @@ import { brandTheme, displayFont } from './brandTheme';
 import * as DocumentPicker from 'expo-document-picker';
 import { File as NativeFile } from 'expo-file-system';
 import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { dateIsValid, isDefaultDemoPlan, workoutTypes, type ImportRow, type PlanEntry } from './training';
 import { canReviewTraining, trainingComparison, type ReviewChatMessage, type SavedReview, type TrainingReview, type TrainingReviewInput } from './evaluation';
 import { FitReview } from './FitReview';
@@ -102,17 +102,18 @@ export function Dialog({ title, children, footer, onClose, followContent }: {
 }) {
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   return <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-    <View style={styles.overlay}>
+    <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.panel}>
         <View style={styles.between}>
           <Text accessibilityRole="header" style={styles.heading}>{title}</Text>
           <Button secondary label="关闭" onPress={onClose} />
         </View>
         <ScrollView ref={scroll} onContentSizeChange={followContent ? () => scroll.current?.scrollToEnd() : undefined}
-          style={styles.scroll} contentContainerStyle={styles.fields} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+          style={styles.scroll} contentContainerStyle={styles.fields} keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>{children}</ScrollView>
         {footer && <View style={styles.buttons}>{footer}</View>}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   </Modal>;
 }
 
@@ -197,6 +198,13 @@ export function AiSettings({ onClose }: { onClose: () => void }) {
       style={[styles.chip, provider.id === item.id && styles.chipActive]}>
       <Text style={[styles.body, provider.id === item.id && styles.chipTextActive]}>{item.label}</Text></Pressable>)}</View>
     {preset?.note && <Text style={styles.body}>{preset.note}</Text>}
+    {preset?.models && preset.models.length > 0 && <>
+      <Text style={styles.label}>模型</Text>
+      <View style={styles.buttons}>{preset.models.map((option) => <Pressable key={option.id} accessibilityRole="button"
+        accessibilityState={{ selected: model.trim() === option.id }} onPress={() => { setModel(option.id); setNotice(option.note); }}
+        style={[styles.chip, model.trim() === option.id && styles.chipActive]}>
+        <Text style={[styles.body, model.trim() === option.id && styles.chipTextActive]}>{option.label}</Text></Pressable>)}</View>
+    </>}
     <View style={styles.buttons}>
       {preset?.keyPage && <Button secondary label={'打开 ' + preset.label + ' 密钥页'} onPress={() => void openExternal(preset.keyPage!)} />}
       {preset?.keyPage && <Button secondary label="复制密钥页链接" onPress={() => void copyKeyPage()} />}
@@ -504,7 +512,7 @@ export function PlanImport({ startDate, existingPlan, hasDemo, onClose, onImport
 const accent = brandTheme.accent;
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: brandTheme.scrim, padding: 14 },
-  panel: { width: '100%', maxWidth: 610, maxHeight: '90%', backgroundColor: 'white', padding: 16, borderRadius: 17, gap: 10 },
+  panel: { width: '100%', maxWidth: 610, maxHeight: '92%', backgroundColor: 'white', padding: 16, borderRadius: 17, gap: 10 },
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   heading: { fontFamily: displayFont, fontSize: 23, color: brandTheme.ink },
   label: { fontSize: 14, color: brandTheme.ink, fontWeight: '700' },
