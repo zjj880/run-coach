@@ -27,7 +27,7 @@ writeFileSync(join(runtime, 'package.json'), JSON.stringify({
 }));
 for (const folder of ['desktop', 'server']) cpSync(join(project, folder), join(runtime, folder), { recursive: true });
 mkdirSync(join(runtime, 'src'));
-for (const file of ['training.ts', 'garmin.ts', 'fit.ts', 'activityWeather.ts', 'aiCore.ts', 'providers.ts']) cpSync(join(project, 'src', file), join(runtime, 'src', file));
+for (const file of ['training.ts', 'garmin.ts', 'fit.ts', 'activityWeather.ts', 'aiCore.ts', 'providers.ts', 'sync.ts']) cpSync(join(project, 'src', file), join(runtime, 'src', file));
 for (const dependency of ['@garmin/fitsdk', 'fflate']) cpSync(join(project, 'node_modules', dependency), join(runtime, 'node_modules', dependency), { recursive: true });
 cpSync(web, join(runtime, 'web'), { recursive: true });
 
