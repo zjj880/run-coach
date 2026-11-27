@@ -1,6 +1,6 @@
 {
   "name": "run-coach",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "main": "index.ts",
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",
@@ -14,6 +14,7 @@
     "expo-file-system": "~58.0.14",
     "expo-font": "~58.0.12",
     "expo-secure-store": "~58.0.3",
+    "expo-sharing": "~58.0.24",
     "expo-status-bar": "~58.0.5",
     "fflate": "0.8.3",
     "ical.js": "^2.2.1",
