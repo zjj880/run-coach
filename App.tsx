@@ -360,7 +360,7 @@ function CoachApp() {
     return (
       <>
         <View style={styles.pageHeading}>
-          <View><Text style={styles.date}>{dateLabel(date)}</Text><Text accessibilityRole="header" style={styles.heading}>今天</Text></View>
+          <View style={styles.todayHeading}><View><Text style={styles.date}>{dateLabel(date)}</Text><Text accessibilityRole="header" style={styles.heading}>今天</Text></View>{!wide && <SiyuanFountain compact />}</View>
           <View style={styles.pill}><Icon name={garmin ? 'watch-variant' : state.demoMetrics ? 'flask-outline' : 'sync'} size={15} />
             <Text style={styles.pillText}>{garmin ? '佳明中国区' : state.demoMetrics ? '演示数据' : '待同步'}</Text></View>
         </View>
@@ -610,12 +610,11 @@ function CoachApp() {
             <Text style={styles.brandText}>交我跑</Text>
           </View>
           {wide && <Navigation current={tab} onSelect={selectTab} />}
-          {!wide && tab === '今天' && <SiyuanFountain compact />}
         </View>
       </View>
       <View style={styles.viewport}>
         {width >= 1120 && tab === '今天' ? <SiyuanCampusBackdrop /> : <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <Image source={require('./assets/campus-print.jpg')} accessible={false} resizeMode="cover"
+          <Image source={require('./assets/campus-siyuan.png')} accessible={false} resizeMode="cover"
             style={[styles.campusPrint, !wide && styles.campusPrintNarrow]} />
         </View>}
         <ScrollView key={tab} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -860,10 +859,11 @@ const styles = StyleSheet.create({
   mark: { width: 36, height: 36, borderRadius: 10 },
   brandText: { fontFamily: displayFont, fontSize: 20, color: ink, letterSpacing: 1.2 },
   viewport: { flex: 1, overflow: 'hidden' },
-  campusPrint: { position: 'absolute', right: 0, top: 0, width: '100%', height: '100%', opacity: 0.72 },
-  campusPrintNarrow: { width: '165%', opacity: 0.44 },
+  campusPrint: { position: 'absolute', right: 0, top: 0, width: '100%', height: '100%', opacity: 0.5 },
+  campusPrintNarrow: { width: '185%', left: '-42%', opacity: 0.32 },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
+  todayHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   content: { width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 22, gap: 12 },
   contentWithArtwork: { paddingRight: 292 },
   pageHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', minHeight: 74, gap: 8 },

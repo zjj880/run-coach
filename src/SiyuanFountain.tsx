@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Platform, StyleSheet, View } from 'react-native';
 
-const campusImage = require('../assets/campus-siyuan.jpg');
-const campusWidth = 1585;
+const campusImage = require('../assets/campus-siyuan.png');
+const campusWidth = 1586;
 const campusHeight = 992;
 
 // Coordinates on the illustrated overflow edge, in the same space as the background.
 const widePoolEdge = [
-  { left: '11.3%', top: '85.8%', offset: 0.07 },
-  { left: '13.3%', top: '86.2%', offset: 0.68 },
-  { left: '15.4%', top: '86.5%', offset: 0.31 },
-  { left: '17.2%', top: '86.8%', offset: 0.86 },
-  { left: '19.4%', top: '86.5%', offset: 0.49 },
-  { left: '21.5%', top: '86.1%', offset: 0.19 },
+  { left: '10.3%', top: '85.4%', offset: 0.07 },
+  { left: '12.8%', top: '85.8%', offset: 0.68 },
+  { left: '15.2%', top: '86.1%', offset: 0.31 },
+  { left: '17.3%', top: '86.3%', offset: 0.86 },
+  { left: '20.1%', top: '86.1%', offset: 0.49 },
+  { left: '23.6%', top: '85.4%', offset: 0.19 },
 ] as const;
 
 const compactPoolEdge = [
