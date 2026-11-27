@@ -5,11 +5,12 @@ import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAiServer } from '../server/ai.mjs';
 import { credentials } from './credentials.mjs';
+import { allowedExternalUrls } from '../src/providers.ts';
 
 const scheme = 'run-coach';
 const home = 'run-coach://app/';
 const webFolder = fileURLToPath(new URL('../web/', import.meta.url));
-const keyPage = 'https://connect.garmin.cn/app/settings/personalApiToken';
+const allowedExternal = new Set(allowedExternalUrls);
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'";
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css',
   '.ico': 'image/x-icon', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json' };
@@ -68,11 +69,11 @@ async function start() {
   window.webContents.on('will-navigate', (event, address) => {
     if (address === home) return;
     event.preventDefault();
-    if (address === keyPage) void shell.openExternal(address);
+    if (allowedExternal.has(address)) void shell.openExternal(address);
   });
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url === keyPage) void shell.openExternal(url);
+    if (allowedExternal.has(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
   window.once('ready-to-show', () => window.show());

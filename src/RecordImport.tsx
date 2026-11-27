@@ -3,6 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File as NativeFile } from 'expo-file-system';
 import { useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import { readClipboardText } from './externalLinks';
 import { Button, Dialog, errorMessage, Field } from './AiTools';
 import { mergeImportedActivities, parseRecordsCsv, type ParsedRecords } from './importRecords';
 import { mapTrainingWorkbook, type PlannedRow } from './xlsxImport';
@@ -103,6 +104,14 @@ export function RecordImport({ state, onDone, onClose }: {
     finally { setBusy(false); }
   }
 
+  async function pasteCsv() {
+    const clipboard = await readClipboardText();
+    if (!clipboard) { setNotice('剪贴板里没有文本。可以先把 CSV 内容复制到剪贴板再点这里。'); return; }
+    setText(clipboard);
+    setFileName('');
+    const parsed = parseRecordsCsv(clipboard);
+    setPreview({ activities: parsed.activities, plans: [], notes: [], errors: parsed.errors, skipped: parsed.skipped, source: 'CSV（剪贴板）' });
+  }
   function analyze() {
     setNotice('');
     const parsed = parseRecordsCsv(text);
@@ -148,6 +157,9 @@ export function RecordImport({ state, onDone, onClose }: {
       <Button secondary label={busy ? '读取中…' : '选择 XLSX / CSV 文件'} onPress={() => void choose()} disabled={busy} />
       {fileName !== '' && <Text style={styles.small}>已选择：{fileName}</Text>}
       <Text style={styles.small}>或粘贴 CSV 内容：</Text>
+      <View style={styles.buttons}>
+        <Button secondary label="从剪贴板粘贴 CSV" onPress={() => void pasteCsv()} />
+      </View>
       <Field label="CSV 内容" value={text} onChangeText={setText} multiline placeholder="日期,公里,分钟,平均心率,标题,训练内容" />
       <View style={styles.buttons}><Button secondary label="解析预览" onPress={analyze} disabled={!text.trim()} /></View>
     </> : <>

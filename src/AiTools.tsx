@@ -8,6 +8,8 @@ import { canReviewTraining, trainingComparison, type ReviewChatMessage, type Sav
 import { FitReview } from './FitReview';
 import { paceSecPerKm } from './autoclassify';
 import type { Activity } from './training';
+import { aiProviders, matchProvider, type AiProvider } from './providers';
+import { openExternal, readClipboardText, writeClipboardText } from './externalLinks';
 
 const localEndpoint = 'http://127.0.0.1:8091';
 export function isWindowsDesktop() {
@@ -121,6 +123,8 @@ export function AiSettings({ onClose }: { onClose: () => void }) {
   const [config, setConfig] = useState<Config>({ configured: false });
   const [busy, setBusy] = useState(true);
   const [notice, setNotice] = useState('');
+  const [provider, setProvider] = useState<AiProvider>(aiProviders[0]);
+  const preset = provider.id === 'custom' ? undefined : provider;
 
   useEffect(() => {
     let mounted = true;
@@ -130,11 +134,34 @@ export function AiSettings({ onClose }: { onClose: () => void }) {
       if (result.configured) {
         setBaseUrl(result.endpoint);
         setModel(result.model);
+        const matched = matchProvider(result.endpoint);
+        if (matched) setProvider(matched);
       }
     }).catch((error) => { if (mounted) setNotice(errorMessage(error)); })
       .finally(() => { if (mounted) setBusy(false); });
     return () => { mounted = false; };
   }, []);
+
+  function choose(next: AiProvider) {
+    setProvider(next);
+    setNotice('');
+    if (next.endpoint) setBaseUrl(next.endpoint);
+    if (next.model) setModel(next.model);
+  }
+
+  async function pasteKey() {
+    const text = await readClipboardText();
+    if (!text) { setNotice('剪贴板里没有文本：先在密钥页点「复制」，再回到这里点「粘贴密钥」。'); return; }
+    const cleaned = text.replace(/\s+/g, '');
+    setApiKey(cleaned);
+    setNotice(/^(sk-|GCDC_)/.test(cleaned) ? '已从剪贴板粘贴密钥，点「测试并保存」。' : '已粘贴剪贴板内容，请确认是 API 密钥。');
+  }
+
+  async function copyKeyPage() {
+    if (!preset?.keyPage) return;
+    const saved = await writeClipboardText(preset.keyPage);
+    setNotice(saved ? '密钥页链接已复制，可以发到电脑或另一台手机打开。' : '无法写入剪贴板，请手动打开：' + preset.keyPage);
+  }
 
   async function testAndSave() {
     setBusy(true);
@@ -163,11 +190,22 @@ export function AiSettings({ onClose }: { onClose: () => void }) {
       disabled={busy || !baseUrl.trim() || !model.trim() || (!config.configured && !apiKey.trim())} />
     {config.configured && <Button secondary label="断开连接" onPress={disconnect} disabled={busy} />}
   </>}>
-    <Text style={styles.body}>用于识别课表、评估训练和回应心情。填写兼容 Chat Completions 的服务地址、模型和 API 密钥。识别图片时请选择支持看图的模型。</Text>
+    <Text style={styles.body}>先选服务商（地址和模型会自动填好），再去密钥页复制密钥粘贴进来，点「测试并保存」即可。</Text>
+    <Text style={styles.label}>服务商</Text>
+    <View style={styles.buttons}>{aiProviders.map((item) => <Pressable key={item.id} accessibilityRole="button"
+      accessibilityState={{ selected: provider.id === item.id }} onPress={() => choose(item)}
+      style={[styles.chip, provider.id === item.id && styles.chipActive]}>
+      <Text style={[styles.body, provider.id === item.id && styles.chipTextActive]}>{item.label}</Text></Pressable>)}</View>
+    {preset?.note && <Text style={styles.body}>{preset.note}</Text>}
+    <View style={styles.buttons}>
+      {preset?.keyPage && <Button secondary label={'打开 ' + preset.label + ' 密钥页'} onPress={() => void openExternal(preset.keyPage!)} />}
+      {preset?.keyPage && <Button secondary label="复制密钥页链接" onPress={() => void copyKeyPage()} />}
+      <Button secondary label="粘贴密钥" onPress={() => void pasteKey()} />
+    </View>
     <Text style={styles.label}>{config.configured ? '已连接 · ' + config.model : '尚未连接'}</Text>
     <Field label="接口地址" value={baseUrl} onChangeText={setBaseUrl} placeholder="https://你的服务商域名/v1" />
     <Field label="模型" value={model} onChangeText={setModel} placeholder="填写服务商给出的模型名称" />
-    <Field label="API 密钥" value={apiKey} onChangeText={setApiKey} secure placeholder={config.configured ? '地址不变时可留空复用' : '填写 AI 服务商的 API 密钥'} />
+    <Field label="API 密钥" value={apiKey} onChangeText={setApiKey} secure placeholder={config.configured ? '地址不变时可留空复用' : '点上面「粘贴密钥」或手动粘贴'} />
     <Text style={styles.body}>{isNativeApp()
       ? '接口设置保存在手机系统安全存储里，只在本机使用，不会上传。'
       : isWindowsDesktop() ? '接口设置保存在这台电脑上，密钥由 Windows 加密。'
@@ -484,6 +522,8 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.45 },
   chip: { paddingHorizontal: 9, paddingVertical: 7, borderWidth: 1, borderColor: brandTheme.border, borderRadius: 9 },
   activeChip: { backgroundColor: brandTheme.tint, borderColor: brandTheme.selectedBorder },
+  chipActive: { backgroundColor: brandTheme.tint, borderColor: brandTheme.selectedBorder },
+  chipTextActive: { color: brandTheme.accent, fontWeight: '800' },
   row: { padding: 12, borderWidth: 1, borderColor: brandTheme.border, borderRadius: 11, gap: 8 },
   notice: { backgroundColor: brandTheme.tint, color: brandTheme.ink, fontSize: 13, lineHeight: 19, borderRadius: 8, padding: 10 },
   summary: { gap: 3, padding: 10, borderRadius: 10, backgroundColor: brandTheme.soft },

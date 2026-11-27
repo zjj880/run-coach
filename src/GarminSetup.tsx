@@ -1,6 +1,7 @@
 import { brandTheme } from './brandTheme';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { readClipboardText, writeClipboardText } from './externalLinks';
 import { aiRequest, Button, Dialog, errorMessage, Field, isWindowsDesktop } from './AiTools';
 import { syncGarminDaily, syncGarminDetails, syncGarminHistory, validateGarminKey, type GarminHistory, type GarminSnapshot, type GarminSync } from './garmin';
 
@@ -98,6 +99,17 @@ export function GarminSetup({ date, latest, onSync, onDisconnect, onClose }: {
     finally { setBusy(false); }
   }
 
+  async function pasteKey() {
+    const text = await readClipboardText();
+    if (!text) { setMessage('剪贴板里没有文本：先在佳明密钥页点「复制」，再回到这里点「粘贴密钥」。'); return; }
+    setInput(text.replace(/\s+/g, '').slice(0, 246));
+    setMessage('已从剪贴板粘贴密钥，点「连接并同步」。');
+  }
+
+  async function copyKeyPage() {
+    const saved = await writeClipboardText(chinaKeyPage);
+    setMessage(saved ? '密钥页链接已复制，可以发到电脑或另一台手机打开。' : '无法写入剪贴板，请手动访问：' + chinaKeyPage);
+  }
   return <Dialog title="连接佳明中国区" onClose={onClose}>
     <Text style={styles.body}>同步当天睡眠、夜间 HRV、静息心率和最近 14 天活动。训练结束后，先打开 Garmin Connect，让手表完成同步。</Text>
     {canConnect ? <>
@@ -109,7 +121,11 @@ export function GarminSetup({ date, latest, onSync, onDisconnect, onClose }: {
         {connected && <Button label="立即同步" secondary onPress={() => run(false)} disabled={busy} />}
         {connected && <Button label="断开连接" secondary onPress={disconnect} disabled={busy} />}
       </View>
-      <Button label="去佳明创建密钥" secondary onPress={() => { Linking.openURL(chinaKeyPage).catch(() => setMessage('请打开中国区 Garmin Connect 网页创建密钥。')); }} />
+      <View style={styles.actions}>
+        <Button label="打开佳明密钥页" secondary onPress={() => { Linking.openURL(chinaKeyPage).catch(() => setMessage('请打开中国区 Garmin Connect 网页创建密钥。')); }} />
+        <Button label="粘贴密钥" secondary onPress={() => void pasteKey()} />
+        <Button label="复制密钥页链接" secondary onPress={() => void copyKeyPage()} />
+      </View>
       <Text style={styles.body}>{isWindowsDesktop() ? '密钥由 Windows 加密并保存在这台电脑上。'
         : Platform.OS === 'web' ? '网页预览的密钥保存在电脑本机服务内存中。' : '手机的密钥保存在系统凭据存储中。'}</Text>
     </> : <Text style={styles.label}>请在原生 App 或电脑本机预览中绑定佳明。</Text>}
