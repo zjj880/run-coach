@@ -2,7 +2,7 @@
   "expo": {
     "name": "交我跑",
     "slug": "run-coach",
-    "version": "0.10.1",
+    "version": "0.10.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -30,7 +30,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.runcoach.preview",
-      "versionCode": 23,
+      "versionCode": 24,
       "adaptiveIcon": {
         "backgroundColor": "#FFF7F2",
         "foregroundImage": "./assets/android-icon-foreground.png",

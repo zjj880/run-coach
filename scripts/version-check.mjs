@@ -15,10 +15,28 @@ if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) problems.push('app.json 的 expo.ver
 if (!Number.isInteger(versionCode) || versionCode < 1) problems.push('app.json 的 expo.android.versionCode 必须是正整数，当前：' + versionCode);
 if (pkg.version !== version) problems.push('package.json version（' + pkg.version + '）必须与 app.json（' + version + '）一致');
 
+// package-lock.json 顶层版本也要同步（npm 会自己改，这里兜底）
+try {
+  const lock = JSON.parse(readFileSync(join(project, 'package-lock.json'), 'utf8'));
+  if (lock.version && lock.version !== version) problems.push('package-lock.json version（' + lock.version + '）必须与 app.json（' + version + '）一致');
+} catch {
+  problems.push('package-lock.json 无法解析');
+}
+
+// App 内展示的版本常量必须与 app.json 一致
+try {
+  const versionSource = readFileSync(join(project, 'src', 'version.ts'), 'utf8');
+  const match = /APP_VERSION\s*=\s*'([^']+)'/.exec(versionSource);
+  if (!match) problems.push('src/version.ts 里找不到 APP_VERSION');
+  else if (match[1] !== version) problems.push('src/version.ts 的 APP_VERSION（' + match[1] + '）必须与 app.json（' + version + '）一致');
+} catch {
+  problems.push('src/version.ts 缺失');
+}
+
 // 版本号与 versionCode 的历史序列（新增版本时在这里追加一行）
 const history = [
   ['0.1.3', 4], ['0.1.4', 5], ['0.1.6', 7], ['0.1.7', 8],
-  ['0.4.1', 15], ['0.5.0', 16], ['0.6.0', 17], ['0.7.0', 18], ['0.7.1', 19], ['0.8.0', 20], ['0.9.0', 21], ['0.10.0', 22], ['0.10.1', 23],
+  ['0.4.1', 15], ['0.5.0', 16], ['0.6.0', 17], ['0.7.0', 18], ['0.7.1', 19], ['0.8.0', 20], ['0.9.0', 21], ['0.10.0', 22], ['0.10.1', 23], ['0.10.2', 24],
 ];
 const known = history.find(([v]) => v === version);
 if (!known) problems.push('版本 ' + version + ' 未登记在 scripts/version-check.mjs 的 history 里');

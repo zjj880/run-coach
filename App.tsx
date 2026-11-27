@@ -12,6 +12,7 @@ import { brandTheme, displayFont } from './src/brandTheme';
 import { SiyuanCampusBackdrop, SiyuanFountain } from './src/SiyuanFountain';
 import { CalorieCards, IntakeDialog, WaterDialog, ProfileEditor } from './src/CalorieCards';
 import { SyncDialog } from './src/SyncDialog';
+import { appVersionLabel } from './src/version';
 import { waterGoalMl, type IntakeEntry, type Profile, type WaterEntry } from './src/nutrition';
 import type { CoachDay } from './src/coach';
 import { canReviewTraining, trainingReviewInput, type SavedReview } from './src/evaluation';
@@ -637,6 +638,7 @@ function CoachApp() {
             }), state.demoMetrics ? '已切换到缺失指标场景。' : '已恢复演示指标。')} />
           </View>
         </Card>}
+        <Text style={styles.version}>交我跑 {appVersionLabel} · 数据保存在本机</Text>
       </View>
     );
   }
@@ -912,6 +914,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   todayHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  version: { textAlign: 'center', color: brandTheme.hint, fontSize: 12, marginTop: 6, marginBottom: 4 },
   content: { width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 22, gap: 12 },
   contentWithArtwork: { paddingRight: 292 },
   pageHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', minHeight: 74, gap: 8 },
