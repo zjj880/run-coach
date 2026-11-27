@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAiServer } from '../server/ai.mjs';
+import { createSyncLanServer, createSyncStore } from '../server/sync.mjs';
 import { credentials } from './credentials.mjs';
 import { allowedExternalUrls } from '../src/providers.ts';
 
@@ -19,19 +20,25 @@ protocol.registerSchemesAsPrivileged([{ scheme, privileges: { standard: true, se
 app.setAppUserModelId('RunCoach.Windows');
 let window;
 let server;
+let lanPromise;
 
 async function start() {
   const vault = credentials(app.getPath('userData'));
   const [initialAiConfig, initialGarminKey] = await Promise.all([vault.read('ai'), vault.read('garmin')]);
   const desktopToken = randomBytes(32).toString('hex');
-  server = createAiServer({ desktopToken, initialAiConfig, initialGarminKey: initialGarminKey ?? '', saveCredential: vault.write });
+  const syncStore = createSyncStore();
+  server = createAiServer({ desktopToken, initialAiConfig, initialGarminKey: initialGarminKey ?? '', saveCredential: vault.write, syncStore, syncPort: 8093 });
   await new Promise((ready, failed) => server.once('error', failed).listen(0, '127.0.0.1', ready));
   const api = 'http://127.0.0.1:' + server.address().port;
+  // 局域网同步服务：固定端口，仅供手机在同一个 Wi-Fi 下用配对码访问
+  const lan = createSyncLanServer(syncStore, { port: 8093 });
+  lanPromise = lan.listen().then((port) => { console.log('同步服务已启动 http://0.0.0.0:' + port); return port; })
+    .catch((error) => { console.warn('同步服务未能启动：' + error.message); return 0; });
 
   protocol.handle(scheme, async (request) => {
     const url = new URL(request.url);
     if (url.host !== 'app' || url.username || url.password) return new Response(null, { status: 404 });
-    if (/^\/(?:ai|garmin)\//.test(url.pathname)) {
+    if (/^\/(?:ai|garmin|sync)\//.test(url.pathname)) {
       if (!['GET', 'POST', 'DELETE'].includes(request.method) || url.search) return new Response(null, { status: 405 });
       try {
         const contentType = request.headers.get('content-type');
@@ -87,7 +94,7 @@ else {
     window?.focus();
   });
   app.on('window-all-closed', () => app.quit());
-  app.on('before-quit', () => server?.close());
+  app.on('before-quit', () => { server?.close(); void lanPromise; });
   app.whenReady().then(start).catch(() => {
     dialog.showErrorBox('交我跑', '启动失败。请完整解压电脑版本，再打开 RunCoach.exe。');
     app.quit();

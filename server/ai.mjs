@@ -33,7 +33,7 @@ async function readJson(request) {
 }
 
 export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, desktopToken,
-  initialAiConfig = null, initialGarminKey = '', saveCredential } = {}) {
+  initialAiConfig = null, initialGarminKey = '', saveCredential, syncStore = null, syncPort = 8093 } = {}) {
   let config = initialAiConfig;
   let revision = 0;
   let garminKey = initialGarminKey;
@@ -48,8 +48,10 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
       response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
       response.end(JSON.stringify(data));
     };
-    if (!/^((localhost|127\.0\.0\.1)(:\d+)?)$/.test(request.headers.host ?? '') || (origin && !origins.has(origin)) ||
-      (desktopToken && request.headers['x-run-coach-desktop'] !== desktopToken)) {
+    const isSyncRoute = (request.url ?? '').startsWith('/sync');
+    const hostOk = /^((localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)([^/:]+)?)(:\d+)?$/.test(request.headers.host ?? '');
+    if (!hostOk || (!isSyncRoute && origin && !origins.has(origin)) ||
+      (!isSyncRoute && desktopToken && request.headers['x-run-coach-desktop'] !== desktopToken)) {
       return send(403, { error: '此开发服务仅供本机 App 调用。' });
     }
     if (origin) response.setHeader('Access-Control-Allow-Origin', origin);
@@ -112,6 +114,16 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
         if (version !== garminRevision) throw new ApiError(409, '佳明连接已更改，请重新同步。');
         return send(200, { details });
       }
+      if (syncStore && route === 'POST /sync/host') {
+        const data = await readJson(request);
+        if (!data?.state || typeof data.state !== 'object') throw new ApiError(400, '缺少本机数据，无法生成配对码。');
+        return send(200, syncStore.host(data.state, syncPort));
+      }
+      if (syncStore && route === 'GET /sync/status') return send(200, { pairing: syncStore.pairing() });
+      if (syncStore && route === 'POST /sync/fetch') {
+        return send(200, syncStore.fetch());
+      }
+      if (syncStore && route === 'POST /sync/cancel') return send(200, syncStore.cancel());
       if (route === 'GET /ai/settings') return send(200, publicConfig(config));
       if (route === 'DELETE /ai/settings') {
         revision += 1;
@@ -164,7 +176,8 @@ export function createAiServer({ fetchImpl = fetch, garminFetchImpl = fetch, des
       }
       send(404, { error: '找不到这个接口。' });
     } catch (error) {
-      if (!response.headersSent) send(error instanceof ApiError ? error.status : 500, { error: error instanceof ApiError ? error.message : '本机 AI 服务出了问题，请重试。' });
+      const status = error instanceof ApiError ? error.status : (typeof error?.status === 'number' ? error.status : 500);
+      if (!response.headersSent) send(status, { error: error instanceof ApiError || typeof error?.status === 'number' ? error.message : '本机 AI 服务出了问题，请重试。' });
     }
   });
 }
