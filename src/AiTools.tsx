@@ -37,7 +37,14 @@ type Config = { configured: true; endpoint: string; model: string } | { configur
 type RowDraft = Omit<ImportRow, 'minutes'> & { minutes: string; skip: boolean };
 type SelectedSource = { name: string; image?: string };
 
+const isNativeApp = () => Platform.OS !== 'web';
+
 export async function aiRequest<T>(path: string, method = 'GET', body?: object): Promise<T> {
+  // 手机 / 平板原生端：直接把请求发给用户配置的模型接口（密钥存系统安全存储）
+  if (isNativeApp()) {
+    const { nativeAiRequest } = await import('./mobileAi');
+    return nativeAiRequest<T>(path, method, body);
+  }
   let response: Response;
   try {
     response = await fetch((isWindowsDesktop() ? '' : localEndpoint) + path, {
@@ -46,7 +53,9 @@ export async function aiRequest<T>(path: string, method = 'GET', body?: object):
     });
   } catch {
     if (isWindowsDesktop()) throw new Error('电脑版本的本机服务暂时无法连接，请重新打开 App。');
-    throw new Error(path.startsWith('/garmin') ? '连不上本机佳明同步服务，请在电脑上运行 npm run ai。' : '连不上本机 AI 服务，请在电脑上运行 npm run ai。');
+    throw new Error(path.startsWith('/garmin')
+      ? '连不上本机佳明同步服务。浏览器预览请先在项目目录运行 npm run ai。'
+      : '连不上本机 AI 服务。浏览器预览请先在项目目录运行 npm run ai；手机端请「我的 → AI 接口」直接配置模型接口。');
   }
   const data = await response.json().catch(() => null);
   if (!response.ok || !data) throw new Error(data?.error || 'AI 服务返回异常，请重试。');
@@ -159,7 +168,10 @@ export function AiSettings({ onClose }: { onClose: () => void }) {
     <Field label="接口地址" value={baseUrl} onChangeText={setBaseUrl} placeholder="https://你的服务商域名/v1" />
     <Field label="模型" value={model} onChangeText={setModel} placeholder="填写服务商给出的模型名称" />
     <Field label="API 密钥" value={apiKey} onChangeText={setApiKey} secure placeholder={config.configured ? '地址不变时可留空复用' : '填写 AI 服务商的 API 密钥'} />
-    <Text style={styles.body}>{isWindowsDesktop() ? '接口设置保存在这台电脑上，密钥由 Windows 加密。' : '密钥仅保留在电脑本机 AI 服务的内存中。重启该服务后需要重新填写。'}</Text>
+    <Text style={styles.body}>{isNativeApp()
+      ? '接口设置保存在手机系统安全存储里，只在本机使用，不会上传。'
+      : isWindowsDesktop() ? '接口设置保存在这台电脑上，密钥由 Windows 加密。'
+        : '密钥仅保留在电脑本机 AI 服务的内存中。重启该服务后需要重新填写。'}</Text>
     {notice !== '' && <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text>}
   </Dialog>;
 }

@@ -56,7 +56,9 @@ Get-ChildItem test\*.mjs | ForEach-Object { node $_.FullName; if ($LASTEXITCODE)
 | `src/FitReview.tsx`、`src/fitCharts.ts` | 逐圈配速、心率图和选点逻辑，消费 FIT 解析后的 `FitActivity` |
 | `src/CoachDialog.tsx` | AI 教练多轮对话与「确认今日方案」 |
 | `src/ActivityFeedbackDialog.tsx` | 单节活动 RPE/心率来源/存疑/天气/备注 |
-| `server/ai.mjs` | 本机 HTTP 服务：`/ai/*` 四个 AI 能力 + `/garmin/*` 四个代理路由；CORS 与 Host 白名单、桌面 token 校验 |
+| `server/ai.mjs` | 本机 HTTP 服务：`/ai/*` 能力 + `/garmin/*` 代理路由；CORS 与 Host 白名单、桌面 token 校验 |
+| `src/aiCore.ts` | AI 核心（提示词/输入校验/输出解码/请求发送），服务端与手机客户端共用 |
+| `src/aiClient.ts`、`src/mobileAi.ts` | 手机端直连模型接口的客户端；配置存 SecureStore |
 | `desktop/main.mjs` | Electron 主进程：注册 `run-coach://` 私有协议、内置同源服务、IPC 白名单、CSP、单实例锁 |
 | `desktop/credentials.mjs` | Windows `safeStorage` 加密凭据读写（原子写） |
 | `scripts/package-windows.mjs` | 打包脚本：expo export → 复制 electron → 改名 → 组装 resources/app |
@@ -152,7 +154,7 @@ Windows 桌面 ──► run-coach://app/（Electron 私有协议）
 3. 已有 `.gitattributes`（统一 LF）与 GitHub Actions CI（typecheck + 测试）；新增二进制类型时记得补 binary 规则。
 4. `npm test` 依赖 `node --test` 的子进程能力，受限环境需逐文件执行（见第 2 节）。
 5. `src/*.ts` 是纯 TS 且被 Node 直接 import，`package.json` 未声明 `"type": "module"`，跑测试会有 `MODULE_TYPELESS_PACKAGE_JSON` 警告（无害）。
-6. 手机端 AI 能力不可用是**已知限制**，不是 bug：需要另行部署带认证的后端。
+6. 手机端 AI 现已直连模型接口（`src/mobileAi.ts`）；浏览器预览仍需要本机服务 `npm run ai`。
 7. 系统日历读取需要原生开发构建（Expo Go 不含 `expo-calendar` 原生模块）。
 8. FIT 只保留圈摘要与降采样曲线，`heartRate` 原始序列绝不进入 AI 请求（`evaluation.ts` 会剔除）。
 9. 评估结果带 `signature`（输入快照哈希语义），输入变化后 UI 显示「待重新评估」，不要改成自动重算。
