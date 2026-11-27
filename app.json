@@ -15,7 +15,14 @@
       ],
       "expo-secure-store",
       "expo-sharing",
-      "expo-build-properties"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true
