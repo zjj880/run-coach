@@ -9,6 +9,7 @@ import { AiSettings, errorMessage, PlanImport, requestMoodReply, TrainingReviewD
 import { ActivityFeedbackDialog } from './src/ActivityFeedbackDialog';
 import { CoachDialog } from './src/CoachDialog';
 import { brandTheme, displayFont } from './src/brandTheme';
+import { SiyuanCampusBackdrop, SiyuanFountain } from './src/SiyuanFountain';
 import type { CoachDay } from './src/coach';
 import { canReviewTraining, trainingReviewInput, type SavedReview } from './src/evaluation';
 import { GarminSetup, pullGarmin, pullGarminDetails } from './src/GarminSetup';
@@ -609,13 +610,14 @@ function CoachApp() {
             <Text style={styles.brandText}>交我跑</Text>
           </View>
           {wide && <Navigation current={tab} onSelect={selectTab} />}
+          {!wide && tab === '今天' && <SiyuanFountain compact />}
         </View>
       </View>
       <View style={styles.viewport}>
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {width >= 1120 && tab === '今天' ? <SiyuanCampusBackdrop /> : <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <Image source={require('./assets/campus-print.jpg')} accessible={false} resizeMode="cover"
             style={[styles.campusPrint, !wide && styles.campusPrintNarrow]} />
-        </View>
+        </View>}
         <ScrollView key={tab} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={[styles.content, width >= 1120 && tab === '今天' && styles.contentWithArtwork]}>
             {storageError && <Text accessibilityRole="alert" style={styles.notice}>本地存储不可用，本次修改可能无法保留。</Text>}
