@@ -2,6 +2,7 @@ import { brandTheme, displayFont } from './brandTheme';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { dateLabel, periodTotals, visibleActivities, type Activity, type CoachState, type TrainingNote } from './training';
+import { activityCalories } from './nutrition';
 
 const pace = (activity: Activity) => {
   if (!activity.km || !activity.minutes) return undefined;
@@ -99,11 +100,13 @@ export function RecordsView({ state, onEditPeriods, onImportRecords, onClassify,
             <Text style={styles.groupLabel}>{group.month}</Text>
             {group.items.map((activity) => {
               const period = periods.find((entry) => activity.date >= entry.from && activity.date <= entry.to);
+              const kcal = activityCalories(activity, state.profile);
               const metrics = [
                 activity.km > 0 ? round1(activity.km) + ' 公里' : undefined,
                 activity.minutes > 0 ? round1(activity.minutes) + ' 分钟' : undefined,
                 pace(activity) ? pace(activity) + '/公里' : undefined,
                 activity.averageHr ? '均心率 ' + activity.averageHr : undefined,
+                kcal.kcal > 0 ? '≈' + kcal.kcal + ' 千卡' : undefined,
               ].filter(Boolean).join(' · ');
               return <Pressable key={activity.id} accessibilityRole="button" onPress={() => onClassify(activity)} style={styles.activity}>
                 <View style={styles.rowBetween}>

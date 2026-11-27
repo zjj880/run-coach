@@ -16,6 +16,8 @@ export type GarminSync = GarminSnapshot & { activities: Activity[] };
 export type GarminHistory = { from: string; to: string; activities: Activity[]; pages: number; truncated: boolean };
 export type ActivityDetail = {
   maxHr?: number;
+  /** 设备记录的活动热量（千卡），用于饮食热量余额 */
+  calories?: number;
   runningCadenceSpm?: number;
   strideLengthCm?: number;
   elevationGainM?: number;
@@ -192,6 +194,7 @@ function normalizeDetail(input: unknown): ActivityDetail {
   }) : [];
   return {
     maxHr: metric(row.maxHR),
+    ...(metric(row.calories) !== undefined ? { calories: metric(row.calories) } : {}),
     runningCadenceSpm: metric(row.averageRunCadence ?? row.averageRunningCadenceInStepsPerMinute),
     strideLengthCm: metric(row.strideLength),
     elevationGainM: metric(row.elevationGain),

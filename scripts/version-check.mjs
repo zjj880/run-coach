@@ -18,7 +18,7 @@ if (pkg.version !== version) problems.push('package.json version（' + pkg.versi
 // 版本号与 versionCode 的历史序列（新增版本时在这里追加一行）
 const history = [
   ['0.1.3', 4], ['0.1.4', 5], ['0.1.6', 7], ['0.1.7', 8],
-  ['0.4.1', 15], ['0.5.0', 16], ['0.6.0', 17], ['0.7.0', 18], ['0.7.1', 19], ['0.8.0', 20],
+  ['0.4.1', 15], ['0.5.0', 16], ['0.6.0', 17], ['0.7.0', 18], ['0.7.1', 19], ['0.8.0', 20], ['0.9.0', 21],
 ];
 const known = history.find(([v]) => v === version);
 if (!known) problems.push('版本 ' + version + ' 未登记在 scripts/version-check.mjs 的 history 里');

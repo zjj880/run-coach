@@ -10,6 +10,8 @@ import { ActivityFeedbackDialog } from './src/ActivityFeedbackDialog';
 import { CoachDialog } from './src/CoachDialog';
 import { brandTheme, displayFont } from './src/brandTheme';
 import { SiyuanCampusBackdrop, SiyuanFountain } from './src/SiyuanFountain';
+import { CalorieCards, IntakeDialog, WaterDialog, ProfileEditor } from './src/CalorieCards';
+import { waterGoalMl, type IntakeEntry, type Profile, type WaterEntry } from './src/nutrition';
 import type { CoachDay } from './src/coach';
 import { canReviewTraining, trainingReviewInput, type SavedReview } from './src/evaluation';
 import { GarminSetup, pullGarmin, pullGarminDetails } from './src/GarminSetup';
@@ -40,7 +42,7 @@ type EditorSheet =
   | { type: 'workout'; date: string; entry?: PlanEntry }
   | { type: 'log'; date: string }
   | { type: 'classify'; activity: Activity; returnToReview?: string };
-type Sheet = EditorSheet | { type: 'aiSettings' } | { type: 'planImport' } | { type: 'review'; date: string } | { type: 'schedule'; date: string } | { type: 'garmin' } | { type: 'coach' } | { type: 'history' } | { type: 'periods' } | { type: 'recordImport' } | { type: 'noteEdit'; note?: TrainingNote }
+type Sheet = EditorSheet | { type: 'aiSettings' } | { type: 'planImport' } | { type: 'review'; date: string } | { type: 'schedule'; date: string } | { type: 'garmin' } | { type: 'coach' } | { type: 'history' } | { type: 'periods' } | { type: 'recordImport' } | { type: 'noteEdit'; note?: TrainingNote } | { type: 'profile' } | { type: 'intake' } | { type: 'water' }
   | { type: 'activityFeedback'; activity: Activity; returnToReview?: string };
 
 const tabIcons: Record<Tab, IconName> = { 今天: 'view-dashboard-outline', 课表: 'calendar-outline', 记录: 'chart-timeline-variant', 我的: 'account-circle-outline' };
@@ -217,6 +219,28 @@ function CoachApp() {
       const synced = applyGarminSync(current, data);
       return autoClassifyDates(synced, data.activities.map((item) => item.date)).state;
     });
+  }
+
+  function saveProfile(profile: Profile) {
+    setState((current) => ({ ...current, profile }));
+    setSheet(null);
+    setNotice('个人信息已保存，今日热量预算已更新。');
+  }
+
+  function addIntake(entry: IntakeEntry) {
+    setState((current) => ({ ...current, intake: [...(current.intake ?? []), entry] }));
+  }
+
+  function deleteIntake(id: string) {
+    setState((current) => ({ ...current, intake: (current.intake ?? []).filter((item) => item.id !== id) }));
+  }
+
+  function addWater(entry: WaterEntry) {
+    setState((current) => ({ ...current, water: [...(current.water ?? []), entry] }));
+  }
+
+  function deleteWater(id: string) {
+    setState((current) => ({ ...current, water: (current.water ?? []).filter((item) => item.id !== id) }));
   }
 
   function saveNote(note: TrainingNote) {
@@ -429,6 +453,8 @@ function CoachApp() {
               <View style={styles.rule} />
               <View style={styles.tip}><Icon name="food-apple-outline" /><View style={styles.tipText}><Text style={styles.cardTitle}>饮食</Text><Text style={styles.body}>{confirmed?.nutrition ?? advice.nutrition}</Text></View></View>
             </Card>
+            <CalorieCards state={state} date={date}
+              onProfile={() => open({ type: 'profile' })} onIntake={() => open({ type: 'intake' })} onWater={() => open({ type: 'water' })} />
           </View>
         </View>
       </>
@@ -566,6 +592,14 @@ function CoachApp() {
           </View>
         </Card>
         <Card>
+          <View style={styles.tip}><Icon name="account-heart-outline" size={23} /><View style={styles.tipText}>
+            <Text style={styles.cardTitle}>个人信息与热量</Text><Text style={styles.body}>{state.profile
+              ? state.profile.heightCm + ' 厘米 · ' + state.profile.weightKg + ' 公斤 · 目标' + state.profile.goal
+              : '填写身高体重后，可计算基础代谢、每日热量预算和运动消耗。'}</Text>
+          </View></View>
+          <View style={styles.actions}><Action label={state.profile ? '修改个人信息' : '填写个人信息'} onPress={() => open({ type: 'profile' })} /></View>
+        </Card>
+        <Card>
           <View style={styles.tip}><Icon name="creation-outline" size={23} /><View style={styles.tipText}>
             <Text style={styles.cardTitle}>AI 接口</Text><Text style={styles.body}>配置模型和 API 密钥，用于课表、训练和心情回应。</Text>
           </View></View>
@@ -631,6 +665,10 @@ function CoachApp() {
       {sheet?.type === 'garmin' && <GarminSetup date={date} latest={garmin} onSync={saveGarmin} onDisconnect={disconnectGarmin} onClose={closeSheet} />}
       {sheet?.type === 'history' && <HistorySync today={date} onDone={saveHistory} onClose={closeSheet} />}
       {sheet?.type === 'periods' && <PeriodEditor periods={state.periods ?? []} today={date} onSave={savePeriods} onClose={closeSheet} />}
+      {sheet?.type === 'profile' && <ProfileEditor profile={state.profile} onSave={saveProfile} onClose={closeSheet} />}
+      {sheet?.type === 'intake' && <IntakeDialog entries={state.intake ?? []} onAdd={addIntake} onDelete={deleteIntake} onClose={closeSheet} />}
+      {sheet?.type === 'water' && <WaterDialog entries={state.water ?? []} goal={waterGoalMl(state.profile)}
+        onAdd={addWater} onDelete={deleteWater} onClose={closeSheet} />}
       {sheet?.type === 'noteEdit' && <NoteEditor note={sheet.note} today={date}
         onSave={(note) => saveNote(note)} onDelete={(id) => deleteNote(id)} onClose={closeSheet} />}
       {sheet?.type === 'recordImport' && <RecordImport state={state} onClose={closeSheet} onDone={(result) => {
@@ -649,7 +687,7 @@ function CoachApp() {
       {sheet?.type === 'activityFeedback' && <ActivityFeedbackDialog activity={sheet.activity}
         onClose={() => finishFeedback(sheet)} onSave={(feedback) => finishFeedback(sheet, feedback, true)} />}
       {sheet?.type === 'schedule' && <ScheduleEditor initialDay={sheet.date} book={book} onUpdate={saveSchedule} onClose={closeSheet} />}
-      {sheet && sheet.type !== 'aiSettings' && sheet.type !== 'planImport' && sheet.type !== 'review' && sheet.type !== 'schedule' && sheet.type !== 'garmin' && sheet.type !== 'coach' && sheet.type !== 'activityFeedback' && sheet.type !== 'history' && sheet.type !== 'periods' && sheet.type !== 'recordImport' && sheet.type !== 'noteEdit' &&
+      {sheet && sheet.type !== 'aiSettings' && sheet.type !== 'planImport' && sheet.type !== 'review' && sheet.type !== 'schedule' && sheet.type !== 'garmin' && sheet.type !== 'coach' && sheet.type !== 'activityFeedback' && sheet.type !== 'history' && sheet.type !== 'periods' && sheet.type !== 'recordImport' && sheet.type !== 'noteEdit' && sheet.type !== 'profile' && sheet.type !== 'intake' && sheet.type !== 'water' &&
         <Editor sheet={sheet} state={state} date={date} notice={notice} onSave={update}
           onClose={() => { if (sheet.type === 'classify' && sheet.returnToReview) open({ type: 'review', date: sheet.returnToReview }); else closeSheet(); }} />}
     </SafeAreaView>

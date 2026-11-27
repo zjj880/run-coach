@@ -2,6 +2,7 @@ import type { SavedReview } from './evaluation';
 import type { ScheduleBook } from './schedule';
 import type { ActivityDetail, GarminSnapshot, GarminSync } from './garmin';
 import type { CoachDay } from './coach';
+import type { IntakeEntry, Profile, WaterEntry } from './nutrition';
 import type { FitActivity } from './fit';
 
 export const workoutTypes = ['轻松跑', '节奏跑', '间歇跑', '长跑', '力量训练', '休息'] as const;
@@ -74,6 +75,12 @@ export type CoachState = {
   periods?: TrainingPeriod[];
   /** 训练笔记：力量、跑技、恢复、比赛、学习等非跑步主课记录。 */
   notes?: TrainingNote[];
+  /** 个人信息：身高、体重、年龄、目标，用于热量计算。 */
+  profile?: Profile;
+  /** 饮食记录（千卡）。 */
+  intake?: IntakeEntry[];
+  /** 饮水记录（毫升）。 */
+  water?: WaterEntry[];
 };
 
 export function notesOnDay(state: CoachState, date: string): TrainingNote[] {
